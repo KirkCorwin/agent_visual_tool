@@ -257,10 +257,8 @@ function SettingsToggle({
 export function NodePalette() {
   const {
     graph,
-    editorConfig,
     addNode,
     setGraphSettings,
-    setEditorConfig,
     addCustomPaletteType,
     removeCustomPaletteType,
     updateCustomPaletteType,
@@ -349,14 +347,6 @@ export function NodePalette() {
           checked={settings.minimalEdgeLabels}
           onChange={(minimalEdgeLabels) =>
             setGraphSettings({ minimalEdgeLabels })
-          }
-        />
-        <SettingsToggle
-          id="palette-copy-edges-paste"
-          label="Copy edges when pasting"
-          checked={editorConfig.copyEdgesOnPaste}
-          onChange={(copyEdgesOnPaste) =>
-            setEditorConfig({ copyEdgesOnPaste })
           }
         />
         <button

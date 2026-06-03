@@ -4,6 +4,8 @@ Local-first visual project architecture designer. Draw a planning graph, export 
 
 **Graph is the source of truth** — ZIP and markdown are always derived from the graph.
 
+**Live demo:** [https://kirkcorwin.github.io/agent_visual_tool/](https://kirkcorwin.github.io/agent_visual_tool/)
+
 ## Run locally
 
 ```bash

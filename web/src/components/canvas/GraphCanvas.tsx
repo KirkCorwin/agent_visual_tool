@@ -71,8 +71,6 @@ function GraphCanvasInner() {
     selection,
     selectedNodeIds,
     deleteSelected,
-    copySelection,
-    pasteClipboard,
   } = useGraphStore();
   const { screenToFlowPosition } = useReactFlow();
   const canvasCaptureRef = useGraphCanvasCaptureRef();
@@ -236,41 +234,6 @@ function GraphCanvasInner() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selection, deleteSelected, connectKeyHeld, connectSourceId]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (isTypingTarget(event.target)) {
-        return;
-      }
-      if (connectKeyHeld || connectSourceId) {
-        return;
-      }
-      const mod = event.ctrlKey || event.metaKey;
-      if (!mod) {
-        return;
-      }
-      if (event.key === "c" || event.key === "C") {
-        if (selectedNodeIds.length === 0) {
-          return;
-        }
-        event.preventDefault();
-        copySelection();
-        return;
-      }
-      if (event.key === "v" || event.key === "V") {
-        event.preventDefault();
-        pasteClipboard();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [
-    connectKeyHeld,
-    connectSourceId,
-    selectedNodeIds.length,
-    copySelection,
-    pasteClipboard,
-  ]);
 
   const resolveConnectTarget = useCallback(
     (event: PointerEvent, source: string): string | null => {

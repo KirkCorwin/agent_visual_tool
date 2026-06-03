@@ -187,7 +187,9 @@ Use this as the execution order after user confirms choices:
 
 - **Palette 1** (master): built-in node types + custom types assigned to page 1; footer launchers for palettes 2–4 (`Name +N` when `N > 0`).
 - **Palettes 2–4**: toggle open from launchers; **×** closes; chain launchers on each open column.
-- **+** adds a type to the first open panel (1→4); at global cap (**48** total) shows `max custom nodes`.
+- **+** adds a type to **that column’s** palette; caps: **30** on palette 1, **40** on palettes 2–4 (shows **Max Nodes** when full).
+- Scroll area: built-ins + customs scroll; **+**, launchers, and settings stay pinned below with a dark thin scrollbar on the right.
+- Reorder: **⋮⋮** handle; drag to canvas: **⤴** handle (avoids conflict with sortable).
 - **T** on column header renames the page; **T** on a row renames the custom type.
 - Drag **⋮⋮** handle: reorder within a panel or drop on another open panel / launcher (white border = accept, red = at cap).
 - Drag the node chip (native): drop on canvas (unchanged `paletteDrag` payload).

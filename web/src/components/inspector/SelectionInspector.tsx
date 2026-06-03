@@ -58,7 +58,7 @@ export function SelectionInspector() {
           </select>
         </label>
         <p className="hint">
-          Hold C to link · Shift+click multi-select · Ctrl+C / Ctrl+V copy nodes
+          Hold C to link · Shift+click multi-select
         </p>
       </section>
 

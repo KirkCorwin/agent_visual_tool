@@ -26,7 +26,10 @@ export function SortableCustomRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: entry.id, data: { kind: "custom-type", typeId: entry.id } });
+  } = useSortable({
+    id: entry.id,
+    data: { kind: "custom-type", typeId: entry.id },
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -74,7 +77,7 @@ export function SortableCustomRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`palette__custom-row${editing ? " palette__custom-row--editing" : ""}${isDragging ? " palette__custom-row--dragging" : ""}`}
+      className={`palette__custom-row${editing ? " palette__custom-row--editing" : ""}${isDragging ? " palette__sortable-row--source" : ""}`}
     >
       {editing ? (
         <input

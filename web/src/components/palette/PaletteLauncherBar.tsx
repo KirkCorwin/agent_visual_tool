@@ -1,6 +1,6 @@
 import { useDroppable } from "@dnd-kit/core";
 import type { CustomPalettePage } from "../../graph/types";
-import { isAtGlobalCustomCap } from "../../lib/paletteLayout";
+import { isPageAtCapFromGraph } from "../../lib/paletteLayout";
 import type { PalettePageId } from "../../lib/paletteLayout";
 import { getPageTypeCount } from "../../lib/paletteLayout";
 import type { PlanningGraph } from "../../graph/types";
@@ -16,7 +16,6 @@ export function PaletteLauncherBar({
   pages: CustomPalettePage[];
 }) {
   const { toggleColumn, isColumnOpen } = usePaletteUi();
-  const atCap = isAtGlobalCustomCap(graph);
   const targets: { id: PalettePageId; index: number }[] = [];
   for (let i = pageIndex + 1; i < pages.length; i++) {
     targets.push({ id: pages[i].id as PalettePageId, index: i });
@@ -34,7 +33,7 @@ export function PaletteLauncherBar({
           pageId={id}
           count={getPageTypeCount(pages, id)}
           isOpen={isColumnOpen(id)}
-          atCap={atCap}
+          atCap={isPageAtCapFromGraph(graph, id)}
           onToggle={() => toggleColumn(id)}
         />
       ))}

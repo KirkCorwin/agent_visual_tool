@@ -1,5 +1,9 @@
 import type { CustomPalettePage, PlanningGraph } from "../graph/types";
-import { MAX_CUSTOM_PALETTE_TYPES } from "./customPaletteLimits";
+import {
+  MAX_CUSTOM_PALETTE_TYPES,
+  MAX_CUSTOM_TYPES_PALETTE_1,
+  MAX_CUSTOM_TYPES_PALETTE_SECONDARY,
+} from "./customPaletteLimits";
 
 export const PALETTE_PAGE_IDS = [
   "palette-1",
@@ -91,6 +95,24 @@ export function normalizeCustomPalettePages(
 
 export function isAtGlobalCustomCap(graph: PlanningGraph): boolean {
   return (graph.customNodeTypes?.length ?? 0) >= MAX_CUSTOM_PALETTE_TYPES;
+}
+
+export function getMaxCustomTypesForPage(pageId: string): number {
+  return pageId === "palette-1"
+    ? MAX_CUSTOM_TYPES_PALETTE_1
+    : MAX_CUSTOM_TYPES_PALETTE_SECONDARY;
+}
+
+export function isPageAtCap(pageId: string, countOnPage: number): boolean {
+  return countOnPage >= getMaxCustomTypesForPage(pageId);
+}
+
+export function isPageAtCapFromGraph(
+  graph: PlanningGraph,
+  pageId: string,
+): boolean {
+  const count = getPageTypeCount(graph.customPalettePages ?? [], pageId);
+  return isPageAtCap(pageId, count);
 }
 
 export function getPageTypeCount(

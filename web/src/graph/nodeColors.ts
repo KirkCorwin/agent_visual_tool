@@ -6,6 +6,7 @@ import type {
   PlanningGraph,
   PlanningNode,
 } from "./types";
+import { normalizeBuiltinPaletteOrder } from "../lib/builtinPaletteOrder";
 
 /** Neutral border on dark canvas (#1c1f28); replaces black in CUD palettes. */
 const FOLDER_NEUTRAL = "#adb5bd";
@@ -251,5 +252,12 @@ export function normalizeGraphSettings(
     accessibleColorMode: mode,
     edgeFollowsLabel: settings.edgeFollowsLabel === true,
     minimalEdgeLabels: settings.minimalEdgeLabels === true,
+    ...(settings.builtinPaletteOrder !== undefined
+      ? {
+          builtinPaletteOrder: normalizeBuiltinPaletteOrder(
+            settings.builtinPaletteOrder,
+          ),
+        }
+      : {}),
   };
 }

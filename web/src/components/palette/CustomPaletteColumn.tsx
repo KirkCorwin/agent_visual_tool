@@ -4,18 +4,22 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useEffect, useRef, useState } from "react";
-import { PALETTE_BUILTIN_TYPES } from "../../lib/planningNodeTypes";
+import {
+  builtinSortableId,
+  getBuiltinPaletteOrder,
+} from "../../lib/builtinPaletteOrder";
 import type { CustomPalettePage, NodeType } from "../../graph/types";
-import { firstOpenPageForAdd, isAtGlobalCustomCap } from "../../lib/paletteLayout";
+import type { PalettePageId } from "../../lib/paletteLayout";
+import {
+  isAtGlobalCustomCap,
+  isPageAtCap,
+} from "../../lib/paletteLayout";
 import { useGraphStore } from "../../store/graphStore";
-import { usePaletteUi } from "../../store/paletteUiStore";
 import { NODE_TYPE_LABELS, resolveNodeTypeColors } from "../canvas/nodeStyles";
 import { PaletteLauncherBar } from "./PaletteLauncherBar";
-import { PaletteNodeButton } from "./PaletteNodeButton";
 import { PaletteSettingsFooter } from "./PaletteSettingsFooter";
+import { SortableBuiltinRow } from "./SortableBuiltinRow";
 import { SortableCustomRow } from "./SortableCustomRow";
-
-const BUILTIN_PALETTE_TYPES = [...PALETTE_BUILTIN_TYPES, "folder"] as const;
 
 export function CustomPaletteColumn({
   page,
@@ -38,19 +42,27 @@ export function CustomPaletteColumn({
     updateCustomPaletteType,
     renamePalettePage,
   } = useGraphStore();
-  const { openPageIdSet } = usePaletteUi();
   const [renamingPage, setRenamingPage] = useState(false);
   const [pageNameDraft, setPageNameDraft] = useState(page.name);
   const pageNameRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const prevCustomCountRef = useRef(page.customTypeIds.length);
   const colors = resolveNodeTypeColors(graph.settings);
+  const builtinOrder = getBuiltinPaletteOrder(
+    graph.settings?.builtinPaletteOrder,
+  );
+  const builtinSortableIds = builtinOrder.map(builtinSortableId);
   const pages = graph.customPalettePages ?? [];
   const typeById = new Map((graph.customNodeTypes ?? []).map((t) => [t.id, t]));
   const pageTypes = page.customTypeIds
     .map((id) => typeById.get(id))
     .filter((t): t is NonNullable<typeof t> => t != null);
-  const atCap = isAtGlobalCustomCap(graph);
+  const pageId = page.id as PalettePageId;
+  const atGlobalCap = isAtGlobalCustomCap(graph);
+  const atPageCap = isPageAtCap(pageId, page.customTypeIds.length);
+  const atCap = atGlobalCap || atPageCap;
 
-  const { setNodeRef, isOver } = useDroppable({
+  const { setNodeRef: setPageDropRef, isOver: isPageOver } = useDroppable({
     id: `page-${page.id}`,
     data: { kind: "page", pageId: page.id },
   });
@@ -68,14 +80,27 @@ export function CustomPaletteColumn({
     }
   }, [renamingPage]);
 
+  useEffect(() => {
+    const prev = prevCustomCountRef.current;
+    const next = page.customTypeIds.length;
+    if (next > prev && scrollRef.current) {
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({
+          top: scrollRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      });
+    }
+    prevCustomCountRef.current = next;
+  }, [page.customTypeIds.length]);
+
   const commitPageRename = () => {
     renamePalettePage(page.id, pageNameDraft);
     setRenamingPage(false);
   };
 
   const handleAddCustom = () => {
-    const target = firstOpenPageForAdd(openPageIdSet, pages, atCap);
-    addCustomPaletteType(target);
+    addCustomPaletteType(pageId);
   };
 
   return (
@@ -133,58 +158,69 @@ export function CustomPaletteColumn({
       {showBuiltins ? (
         <p className="palette__hint">Drag onto the canvas or click to add.</p>
       ) : null}
+
       <div
-        ref={setNodeRef}
-        className={`palette__nodes${isOver ? " palette__nodes--drop-target" : ""}`}
+        ref={scrollRef}
+        className={`palette__scroll${isPageOver ? " palette__scroll--drop-target" : ""}`}
       >
-        {showBuiltins ? (
-          <div className="palette__grid">
-            {BUILTIN_PALETTE_TYPES.map((nodeType) => (
-              <PaletteNodeButton
-                key={nodeType}
-                label={NODE_TYPE_LABELS[nodeType]}
-                color={colors[nodeType]}
-                onAdd={() => addNode(nodeType as NodeType)}
-                dragPayload={{ kind: "builtin", nodeType: nodeType as NodeType }}
-              />
-            ))}
-          </div>
-        ) : null}
-        <SortableContext
-          items={page.customTypeIds}
-          strategy={verticalListSortingStrategy}
-        >
-          <div className={showBuiltins ? "palette__custom-list" : "palette__grid"}>
-            {pageTypes.map((entry) => (
-              <SortableCustomRow
-                key={entry.id}
-                entry={entry}
-                graph={graph}
-                onAdd={() =>
-                  addNode("custom", undefined, { customTypeId: entry.id })
-                }
-                onRename={(label) => updateCustomPaletteType(entry.id, label)}
-                onRemove={() => removeCustomPaletteType(entry.id)}
-              />
-            ))}
-          </div>
-        </SortableContext>
+        <div ref={setPageDropRef} className="palette__scroll-inner">
+          {showBuiltins ? (
+            <SortableContext
+              items={builtinSortableIds}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="palette__grid palette__grid--builtins">
+                {builtinOrder.map((nodeType) => (
+                  <SortableBuiltinRow
+                    key={nodeType}
+                    nodeType={nodeType}
+                    label={NODE_TYPE_LABELS[nodeType]}
+                    color={colors[nodeType]}
+                    onAdd={() => addNode(nodeType as NodeType)}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          ) : null}
+          <SortableContext
+            items={page.customTypeIds}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="palette__custom-list">
+              {pageTypes.map((entry) => (
+                <SortableCustomRow
+                  key={entry.id}
+                  entry={entry}
+                  graph={graph}
+                  onAdd={() =>
+                    addNode("custom", undefined, { customTypeId: entry.id })
+                  }
+                  onRename={(label) => updateCustomPaletteType(entry.id, label)}
+                  onRemove={() => removeCustomPaletteType(entry.id)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </div>
+      </div>
+
+      <footer className="palette__footer">
         {atCap ? (
-          <span className="palette__max-label">max custom nodes</span>
+          <span className="palette__max-label">Max Nodes</span>
         ) : (
           <button
             type="button"
             className="palette__add-type"
-            title="Add custom node type"
-            aria-label="Add custom node type"
+            title="Add custom node type to this palette"
+            aria-label="Add custom node type to this palette"
             onClick={handleAddCustom}
           >
             +
           </button>
         )}
-      </div>
-      <PaletteLauncherBar graph={graph} pageIndex={pageIndex} pages={pages} />
-      {showSettings ? <PaletteSettingsFooter /> : null}
+        <PaletteLauncherBar graph={graph} pageIndex={pageIndex} pages={pages} />
+        {showSettings ? <PaletteSettingsFooter /> : null}
+      </footer>
     </aside>
   );
 }

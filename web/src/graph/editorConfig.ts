@@ -38,8 +38,6 @@ export type EditorConfig = {
   /** Export boilerplate per custom palette type id. */
   customPromptsByTypeId: Record<string, string>;
   bootstrapPrompt: string;
-  /** When pasting nodes, also duplicate explicit edges between pasted nodes. */
-  copyEdgesOnPaste: boolean;
   /** Named semantic relations (loop, contains, …) selectable in edge menus. */
   customEdgePresets: CustomEdgePreset[];
   /** Snapshot for additive import (types + palette layout). */
@@ -57,7 +55,6 @@ export const DEFAULT_EDITOR_CONFIG: EditorConfig = {
   nodePrompts: { ...DEFAULT_NODE_PROMPTS },
   customPromptsByTypeId: {},
   bootstrapPrompt: DEFAULT_BOOTSTRAP_PROMPT,
-  copyEdgesOnPaste: false,
   customEdgePresets: normalizeCustomEdgePresets(undefined),
 };
 
@@ -88,7 +85,6 @@ export function normalizeEditorConfig(
       typeof raw?.bootstrapPrompt === "string" && raw.bootstrapPrompt.trim()
         ? raw.bootstrapPrompt
         : DEFAULT_BOOTSTRAP_PROMPT,
-    copyEdgesOnPaste: raw?.copyEdgesOnPaste === true,
     customEdgePresets: normalizeCustomEdgePresets(raw?.customEdgePresets),
     settingsBundle: raw?.settingsBundle,
   };

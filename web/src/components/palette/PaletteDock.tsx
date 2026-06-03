@@ -1,4 +1,5 @@
 import {
+  closestCenter,
   DndContext,
   DragOverlay,
   PointerSensor,
@@ -8,29 +9,42 @@ import {
 } from "@dnd-kit/core";
 import { useState } from "react";
 import type { CustomPaletteType } from "../../graph/types";
-import { isAtGlobalCustomCap } from "../../lib/paletteLayout";
+import {
+  getBuiltinPaletteOrder,
+  parseBuiltinSortableId,
+  type BuiltinPaletteNodeType,
+} from "../../lib/builtinPaletteOrder";
 import {
   getPalettePageIndex,
+  isPageAtCapFromGraph,
   PALETTE_PAGE_IDS,
   type PalettePageId,
 } from "../../lib/paletteLayout";
 import { useGraphStore } from "../../store/graphStore";
 import { usePaletteUi } from "../../store/paletteUiStore";
-import { resolveCustomDisplayColor } from "../canvas/nodeStyles";
+import { NODE_TYPE_LABELS, resolveCustomDisplayColor, resolveNodeTypeColors } from "../canvas/nodeStyles";
 import { CustomPaletteColumn } from "./CustomPaletteColumn";
 import { PaletteNodeButton } from "./PaletteNodeButton";
 import { ResizablePaletteShell } from "./ResizablePaletteShell";
 
 export function PaletteDock() {
-  const { graph, moveCustomPaletteType, reorderCustomPaletteType } =
-    useGraphStore();
+  const {
+    graph,
+    moveCustomPaletteType,
+    reorderCustomPaletteType,
+    reorderBuiltinPalette,
+  } = useGraphStore();
   const { isColumnOpen, setColumnOpen } = usePaletteUi();
   const pages = graph.customPalettePages ?? [];
   const typeById = new Map((graph.customNodeTypes ?? []).map((t) => [t.id, t]));
+  const builtinOrder = getBuiltinPaletteOrder(graph.settings?.builtinPaletteOrder);
+  const colors = resolveNodeTypeColors(graph.settings);
   const [activeType, setActiveType] = useState<CustomPaletteType | null>(null);
+  const [activeBuiltin, setActiveBuiltin] =
+    useState<BuiltinPaletteNodeType | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
   );
 
   const findPageForType = (typeId: string): PalettePageId | null => {
@@ -45,10 +59,33 @@ export function PaletteDock() {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveType(null);
+    setActiveBuiltin(null);
     if (!over) {
       return;
     }
-    const typeId = String(active.id);
+
+    const activeId = String(active.id);
+    const overId = String(over.id);
+
+    const activeBuiltinType = parseBuiltinSortableId(activeId);
+    if (activeBuiltinType) {
+      const overBuiltinType = parseBuiltinSortableId(overId);
+      if (!overBuiltinType) {
+        return;
+      }
+      const fromIndex = builtinOrder.indexOf(activeBuiltinType);
+      const toIndex = builtinOrder.indexOf(overBuiltinType);
+      if (fromIndex >= 0 && toIndex >= 0 && fromIndex !== toIndex) {
+        reorderBuiltinPalette(fromIndex, toIndex);
+      }
+      return;
+    }
+
+    const typeId = activeId;
+    if (!typeById.has(typeId)) {
+      return;
+    }
+
     const fromPageId = findPageForType(typeId);
     if (!fromPageId) {
       return;
@@ -62,10 +99,38 @@ export function PaletteDock() {
       return;
     }
 
-    const overId = String(over.id);
+    if (typeById.has(overId)) {
+      const toPageId = findPageForType(overId);
+      if (!toPageId) {
+        return;
+      }
+      const toPage = pages.find((p) => p.id === toPageId);
+      if (!toPage) {
+        return;
+      }
+      const toIndex = toPage.customTypeIds.indexOf(overId);
+      if (toIndex < 0) {
+        return;
+      }
+      if (fromPageId === toPageId) {
+        if (fromIndex !== toIndex) {
+          reorderCustomPaletteType(fromPageId, fromIndex, toIndex);
+        }
+      } else {
+        if (isPageAtCapFromGraph(graph, toPageId)) {
+          return;
+        }
+        moveCustomPaletteType(typeId, toPageId, toIndex);
+      }
+      return;
+    }
+
     if (overId.startsWith("launcher-")) {
       const toPageId = overId.replace("launcher-", "") as PalettePageId;
-      if (isAtGlobalCustomCap(graph) && toPageId !== fromPageId) {
+      if (fromPageId === toPageId) {
+        return;
+      }
+      if (isPageAtCapFromGraph(graph, toPageId)) {
         return;
       }
       const toPage = pages.find((p) => p.id === toPageId);
@@ -78,34 +143,17 @@ export function PaletteDock() {
 
     if (overId.startsWith("page-")) {
       const toPageId = overId.replace("page-", "") as PalettePageId;
+      if (fromPageId === toPageId) {
+        return;
+      }
+      if (isPageAtCapFromGraph(graph, toPageId)) {
+        return;
+      }
       const toPage = pages.find((p) => p.id === toPageId);
       if (!toPage) {
         return;
       }
-      if (toPageId === fromPageId) {
-        return;
-      }
       moveCustomPaletteType(typeId, toPageId, toPage.customTypeIds.length);
-      return;
-    }
-
-    const overTypeId = overId;
-    const toPageId = findPageForType(overTypeId);
-    if (!toPageId) {
-      return;
-    }
-    const toPage = pages.find((p) => p.id === toPageId);
-    if (!toPage) {
-      return;
-    }
-    const toIndex = toPage.customTypeIds.indexOf(overTypeId);
-    if (toIndex < 0) {
-      return;
-    }
-    if (fromPageId === toPageId) {
-      reorderCustomPaletteType(fromPageId, fromIndex, toIndex);
-    } else {
-      moveCustomPaletteType(typeId, toPageId, toIndex);
     }
   };
 
@@ -116,14 +164,24 @@ export function PaletteDock() {
   return (
     <DndContext
       sensors={sensors}
+      collisionDetection={closestCenter}
       onDragStart={(event) => {
-        const entry = typeById.get(String(event.active.id));
+        const id = String(event.active.id);
+        const builtin = parseBuiltinSortableId(id);
+        if (builtin) {
+          setActiveBuiltin(builtin);
+          return;
+        }
+        const entry = typeById.get(id);
         if (entry) {
           setActiveType(entry);
         }
       }}
       onDragEnd={handleDragEnd}
-      onDragCancel={() => setActiveType(null)}
+      onDragCancel={() => {
+        setActiveType(null);
+        setActiveBuiltin(null);
+      }}
     >
       <div className="palette-dock">
         {openColumns.map((pageId) => {
@@ -152,14 +210,25 @@ export function PaletteDock() {
           );
         })}
       </div>
-      <DragOverlay>
-        {activeType ? (
+      <DragOverlay dropAnimation={null}>
+        {activeBuiltin ? (
+          <div className="palette__builtin-row palette__builtin-row--overlay">
+            <PaletteNodeButton
+              label={NODE_TYPE_LABELS[activeBuiltin]}
+              color={colors[activeBuiltin]}
+              onAdd={() => {}}
+              dragPayload={{ kind: "builtin", nodeType: activeBuiltin }}
+              canvasDrag={false}
+            />
+          </div>
+        ) : activeType ? (
           <div className="palette__custom-row palette__custom-row--overlay">
             <PaletteNodeButton
               label={activeType.label}
               color={resolveCustomDisplayColor(graph, activeType.id)}
               onAdd={() => {}}
               dragPayload={{ kind: "custom", customTypeId: activeType.id }}
+              canvasDrag={false}
             />
           </div>
         ) : null}

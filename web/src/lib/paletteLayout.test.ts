@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { createEmptyGraph, newId } from "../graph/defaults";
-import { MAX_CUSTOM_PALETTE_TYPES } from "./customPaletteLimits";
+import {
+  MAX_CUSTOM_PALETTE_TYPES,
+  MAX_CUSTOM_TYPES_PALETTE_1,
+} from "./customPaletteLimits";
 import {
   createDefaultPalettePages,
   firstOpenPageForAdd,
   isAtGlobalCustomCap,
+  isPageAtCap,
   normalizeCustomPalettePages,
   PALETTE_PAGE_IDS,
 } from "./paletteLayout";
@@ -34,6 +38,11 @@ describe("normalizeCustomPalettePages", () => {
       color: "#f0f",
     }));
     expect(isAtGlobalCustomCap(graph)).toBe(true);
+  });
+
+  it("enforces per-page cap on palette 1", () => {
+    expect(isPageAtCap("palette-1", MAX_CUSTOM_TYPES_PALETTE_1)).toBe(true);
+    expect(isPageAtCap("palette-2", 40)).toBe(true);
   });
 });
 

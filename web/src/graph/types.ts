@@ -66,6 +66,8 @@ export type GraphEditorSettings = {
   edgeFollowsLabel: boolean;
   /** When true, edge chips show a single capitalized letter instead of the full relation label. */
   minimalEdgeLabels: boolean;
+  /** Master palette: display order for built-in node type buttons. */
+  builtinPaletteOrder?: string[];
 };
 
 export type PlanningNode = {

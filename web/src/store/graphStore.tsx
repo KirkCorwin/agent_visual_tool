@@ -38,6 +38,7 @@ import type {
 } from "../graph/types";
 import { nextCustomPinkColor } from "../graph/nodeColors";
 import { MAX_CUSTOM_PALETTE_TYPES } from "../lib/customPaletteLimits";
+import { isPageAtCap } from "../lib/paletteLayout";
 import { applyCanvasState } from "../graph/reactFlowAdapter";
 import { parsePlanningGraphJson, serializePlanningGraph } from "../graph/serialize";
 import { validatePlanningGraph } from "../graph/validation";
@@ -55,19 +56,15 @@ import {
   serializeEditorConfig,
   type EditorConfig,
 } from "../graph/editorConfig";
+import { arrayMove } from "@dnd-kit/sortable";
+import { getBuiltinPaletteOrder } from "../lib/builtinPaletteOrder";
 import {
   appendTypeToPage,
   createDefaultPalettePages,
   moveTypeInPages,
   removeTypeFromAllPages,
-  reorderTypeInPage,
   renamePageInPages,
 } from "../lib/paletteLayout";
-import {
-  buildClipboardFromSelection,
-  pasteClipboard,
-  type NodeClipboard,
-} from "../lib/duplicateNodes";
 import { downloadTextFile, editorSettingsFileName, graphFileName } from "../lib/fileIO";
 import {
   getSelectedNodeIds,
@@ -109,7 +106,6 @@ export type GraphStoreState = {
   editorConfig: EditorConfig;
   defaultEdgeType: EdgeType;
   selection: Selection;
-  clipboard: NodeClipboard | null;
   warnings: string[];
   loadError: string | null;
 };
@@ -131,8 +127,6 @@ type GraphAction =
   | { type: "set_graph_settings"; settings: Partial<GraphEditorSettings> }
   | { type: "set_editor_config"; config: Partial<EditorConfig> }
   | { type: "load_editor_config"; config: EditorConfig }
-  | { type: "copy_selection" }
-  | { type: "paste_clipboard" }
   | { type: "set_selection_nodes"; ids: string[] }
   | { type: "add_custom_palette_type"; pageId?: string }
   | { type: "remove_custom_palette_type"; id: string }
@@ -150,6 +144,7 @@ type GraphAction =
       toIndex: number;
     }
   | { type: "rename_palette_page"; pageId: string; name: string }
+  | { type: "reorder_builtin_palette"; fromIndex: number; toIndex: number }
   | { type: "load_editor_settings"; config: Partial<EditorConfig> }
   | { type: "update_node"; id: string; data: Partial<NodeData> }
   | { type: "set_node_type"; id: string; nodeType: NodeType; customTypeId?: string }
@@ -297,39 +292,6 @@ export function graphReducer(
       return commitGraph(graph, { ...state, editorConfig: stored });
     }
 
-    case "copy_selection": {
-      const ids = getSelectedNodeIds(state.selection);
-      if (ids.length === 0) {
-        return state;
-      }
-      const clipboard = buildClipboardFromSelection(
-        state.graph.nodes,
-        state.graph.edges,
-        ids,
-        state.editorConfig.copyEdgesOnPaste,
-      );
-      return { ...state, clipboard };
-    }
-
-    case "paste_clipboard": {
-      if (!state.clipboard || state.clipboard.nodes.length === 0) {
-        return state;
-      }
-      const { nodes, edges, newRootIds } = pasteClipboard(
-        state.graph.nodes,
-        state.graph.edges,
-        state.clipboard,
-        state.editorConfig.copyEdgesOnPaste,
-      );
-      return commitGraph(
-        { ...state.graph, nodes, edges },
-        {
-          ...state,
-          selection: { kind: "nodes", ids: newRootIds },
-        },
-      );
-    }
-
     case "set_selection_nodes": {
       const ids = [...new Set(action.ids)];
       return {
@@ -343,13 +305,17 @@ export function graphReducer(
       if (existing.length >= MAX_CUSTOM_PALETTE_TYPES) {
         return state;
       }
+      const pages = state.graph.customPalettePages ?? createDefaultPalettePages();
+      const pageId = action.pageId ?? "palette-1";
+      const targetPage = pages.find((p) => p.id === pageId);
+      if (isPageAtCap(pageId, targetPage?.customTypeIds.length ?? 0)) {
+        return state;
+      }
       const entry: CustomPaletteType = {
         id: newId(),
         label: `Custom ${existing.length + 1}`,
         color: nextCustomPinkColor(existing),
       };
-      const pages = state.graph.customPalettePages ?? createDefaultPalettePages();
-      const pageId = action.pageId ?? "palette-1";
       const customPalettePages = appendTypeToPage(pages, pageId, entry.id);
       const editorConfig = {
         ...state.editorConfig,
@@ -398,12 +364,24 @@ export function graphReducer(
     }
 
     case "reorder_custom_palette_type": {
-      const pages = reorderTypeInPage(
-        state.graph.customPalettePages ?? [],
-        action.pageId,
-        action.fromIndex,
-        action.toIndex,
-      );
+      const pages = (state.graph.customPalettePages ?? []).map((p) => {
+        if (p.id !== action.pageId) {
+          return p;
+        }
+        const ids = [...p.customTypeIds];
+        if (
+          action.fromIndex < 0 ||
+          action.fromIndex >= ids.length ||
+          action.toIndex < 0 ||
+          action.toIndex >= ids.length
+        ) {
+          return p;
+        }
+        return {
+          ...p,
+          customTypeIds: arrayMove(ids, action.fromIndex, action.toIndex),
+        };
+      });
       return commitGraph({ ...state.graph, customPalettePages: pages }, state);
     }
 
@@ -414,6 +392,34 @@ export function graphReducer(
         action.name,
       );
       return commitGraph({ ...state.graph, customPalettePages: pages }, state);
+    }
+
+    case "reorder_builtin_palette": {
+      const order = getBuiltinPaletteOrder(
+        state.graph.settings?.builtinPaletteOrder,
+      );
+      if (
+        action.fromIndex < 0 ||
+        action.fromIndex >= order.length ||
+        action.toIndex < 0 ||
+        action.toIndex >= order.length
+      ) {
+        return state;
+      }
+      return commitGraph(
+        {
+          ...state.graph,
+          settings: {
+            ...state.graph.settings!,
+            builtinPaletteOrder: arrayMove(
+              order,
+              action.fromIndex,
+              action.toIndex,
+            ),
+          },
+        },
+        state,
+      );
     }
 
     case "update_custom_palette_type": {
@@ -701,8 +707,6 @@ type GraphStoreValue = {
   setEditorConfig: (config: Partial<EditorConfig>) => void;
   saveEditorConfigToFile: () => void;
   loadEditorConfigFromJson: (json: string) => boolean;
-  copySelection: () => void;
-  pasteClipboard: () => void;
   addCustomPaletteType: (pageId?: string) => void;
   removeCustomPaletteType: (id: string) => void;
   updateCustomPaletteType: (id: string, label: string) => void;
@@ -717,6 +721,7 @@ type GraphStoreValue = {
     toIndex: number,
   ) => void;
   renamePalettePage: (pageId: string, name: string) => void;
+  reorderBuiltinPalette: (fromIndex: number, toIndex: number) => void;
   updateNodeData: (id: string, data: Partial<NodeData>) => void;
   setNodeType: (id: string, nodeType: NodeType, customTypeId?: string) => void;
   deleteSelected: () => void;
@@ -750,7 +755,6 @@ const initialState: GraphStoreState = {
   editorConfig: loadStoredEditorConfig(),
   defaultEdgeType: "depends_on",
   selection: null,
-  clipboard: null,
   warnings: [],
   loadError: null,
 };
@@ -844,6 +848,13 @@ export function GraphStoreProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "rename_palette_page", pageId, name });
   }, []);
 
+  const reorderBuiltinPalette = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      dispatch({ type: "reorder_builtin_palette", fromIndex, toIndex });
+    },
+    [],
+  );
+
   const updateNodeData = useCallback((id: string, data: Partial<NodeData>) => {
     dispatch({ type: "update_node", id, data });
   }, []);
@@ -881,14 +892,6 @@ export function GraphStoreProvider({ children }: { children: ReactNode }) {
 
   const selectNodes = useCallback((ids: string[]) => {
     dispatch({ type: "set_selection_nodes", ids });
-  }, []);
-
-  const copySelection = useCallback(() => {
-    dispatch({ type: "copy_selection" });
-  }, []);
-
-  const pasteClipboard = useCallback(() => {
-    dispatch({ type: "paste_clipboard" });
   }, []);
 
   const setEditorConfig = useCallback((config: Partial<EditorConfig>) => {
@@ -1020,14 +1023,13 @@ export function GraphStoreProvider({ children }: { children: ReactNode }) {
       setEditorConfig,
       saveEditorConfigToFile,
       loadEditorConfigFromJson,
-      copySelection,
-      pasteClipboard,
       addCustomPaletteType,
       removeCustomPaletteType,
       updateCustomPaletteType,
       moveCustomPaletteType,
       reorderCustomPaletteType,
       renamePalettePage,
+      reorderBuiltinPalette,
       updateNodeData,
       setNodeType,
       deleteSelected,
@@ -1058,14 +1060,13 @@ export function GraphStoreProvider({ children }: { children: ReactNode }) {
       setEditorConfig,
       saveEditorConfigToFile,
       loadEditorConfigFromJson,
-      copySelection,
-      pasteClipboard,
       addCustomPaletteType,
       removeCustomPaletteType,
       updateCustomPaletteType,
       moveCustomPaletteType,
       reorderCustomPaletteType,
       renamePalettePage,
+      reorderBuiltinPalette,
       updateNodeData,
       setNodeType,
       deleteSelected,

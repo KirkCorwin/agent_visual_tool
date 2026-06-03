@@ -74,8 +74,7 @@ function AccessibleColorPicker({
 }
 
 export function PaletteSettingsFooter() {
-  const { graph, editorConfig, setGraphSettings, setEditorConfig } =
-    useGraphStore();
+  const { graph, setGraphSettings } = useGraphStore();
   const [moreSettingsOpen, setMoreSettingsOpen] = useState(false);
   const settings = graph.settings!;
 
@@ -112,12 +111,6 @@ export function PaletteSettingsFooter() {
         label="Minimal edge labels"
         checked={settings.minimalEdgeLabels}
         onChange={(minimalEdgeLabels) => setGraphSettings({ minimalEdgeLabels })}
-      />
-      <SettingsToggle
-        id="palette-copy-edges-paste"
-        label="Copy edges when pasting"
-        checked={editorConfig.copyEdgesOnPaste}
-        onChange={(copyEdgesOnPaste) => setEditorConfig({ copyEdgesOnPaste })}
       />
       <button
         type="button"
