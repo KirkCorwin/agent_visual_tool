@@ -6,6 +6,7 @@ import {
   setPaletteDragData,
   type PaletteDragPayload,
 } from "../../lib/paletteDrag";
+import { MoreSettingsDialog } from "../settings/MoreSettingsDialog";
 import { useGraphStore } from "../../store/graphStore";
 import type { AccessibleColorMode } from "../../graph/types";
 import {
@@ -256,12 +257,15 @@ function SettingsToggle({
 export function NodePalette() {
   const {
     graph,
+    editorConfig,
     addNode,
     setGraphSettings,
+    setEditorConfig,
     addCustomPaletteType,
     removeCustomPaletteType,
     updateCustomPaletteType,
   } = useGraphStore();
+  const [moreSettingsOpen, setMoreSettingsOpen] = useState(false);
   const colors = resolveNodeTypeColors(graph.settings);
   const settings = graph.settings!;
   const customTypes = graph.customNodeTypes ?? [];
@@ -347,7 +351,26 @@ export function NodePalette() {
             setGraphSettings({ minimalEdgeLabels })
           }
         />
+        <SettingsToggle
+          id="palette-copy-edges-paste"
+          label="Copy edges when pasting"
+          checked={editorConfig.copyEdgesOnPaste}
+          onChange={(copyEdgesOnPaste) =>
+            setEditorConfig({ copyEdgesOnPaste })
+          }
+        />
+        <button
+          type="button"
+          className="palette__more-settings btn"
+          onClick={() => setMoreSettingsOpen(true)}
+        >
+          More settings…
+        </button>
       </footer>
+      <MoreSettingsDialog
+        open={moreSettingsOpen}
+        onClose={() => setMoreSettingsOpen(false)}
+      />
     </aside>
   );
 }

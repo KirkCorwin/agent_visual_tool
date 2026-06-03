@@ -304,9 +304,9 @@ export function InlineEditable({
       title={
         multiline
           ? enterCommits
-            ? "Click to edit · Enter to finish · Shift+Enter for new line"
-            : "Click to edit · Enter for new line"
-          : "Click to edit · double-click to select all"
+            ? "Double-click to edit · Enter to finish · Shift+Enter for new line"
+            : "Double-click to edit · Enter for new line"
+          : "Double-click to edit · double-click again to select all"
       }
     >
       {value || placeholder ? (

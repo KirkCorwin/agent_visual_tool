@@ -1,14 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createEmptyGraph, createNode } from "../graph/defaults";
-import { graphReducer } from "./graphStore";
+import { createTestGraphStoreState, graphReducer } from "./graphStore";
 
-const baseState = () => ({
-  graph: createEmptyGraph(),
-  defaultEdgeType: "depends_on" as const,
-  selection: null,
-  warnings: [] as string[],
-  loadError: null,
-});
+const baseState = () => createTestGraphStoreState();
 
 describe("delete_node", () => {
   it("removes incident edges but keeps children when deleteChildrenOnNodeDelete is off", () => {

@@ -133,6 +133,8 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  opacity: 0.9;
+  transition: opacity 0.12s ease;
 }
 
 .planning-node__header {
@@ -227,18 +229,12 @@
   box-shadow: 0 0 0 2px #f5a623;
 }
 
-/* Containers with nested nodes — stay translucent so edges behind remain visible */
-.planning-node--has-nested,
-.folder-node--has-nested {
-  opacity: 0.92;
-}
-
+/* Nested focus: slightly more translucent descendants */
 .graph-canvas .react-flow__node.avt-node--descendant-dim .planning-node,
 .graph-canvas .react-flow__node.avt-node--descendant-dim .folder-node,
 .planning-node--descendant-dim,
 .folder-node--descendant-dim {
-  opacity: 0.9;
-  transition: opacity 0.12s ease;
+  opacity: 0.82;
 }
 
 /* Fixed overlay for inline editors / type menu above nested child nodes */
@@ -272,6 +268,8 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  opacity: 0.9;
+  transition: opacity 0.12s ease;
 }
 
 .folder-node__body {
@@ -472,11 +470,12 @@
 }
 
 .edge-label--minimal .edge-label__type-btn {
-  flex: 0 0 auto;
-  min-width: 1.1rem;
+  flex: 1 1 auto;
+  min-width: 2.75rem;
+  min-height: 1.75rem;
   justify-content: center;
   gap: 0.15rem;
-  padding: 0.1rem 0.2rem;
+  padding: 0.25rem 0.45rem;
 }
 
 .edge-label--minimal .edge-label__type-text {

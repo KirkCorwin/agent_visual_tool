@@ -28,3 +28,35 @@ export function writeStoredPaletteWidth(width: number): void {
     String(clampPaletteWidth(width)),
   );
 }
+
+export function paletteWidthStorageKey(columnIndex: number): string {
+  if (columnIndex <= 1) {
+    return PALETTE_WIDTH_STORAGE_KEY;
+  }
+  return `avt-palette-width-${columnIndex}`;
+}
+
+export function readStoredPaletteWidthForColumn(columnIndex: number): number {
+  if (typeof window === "undefined") {
+    return PALETTE_WIDTH_DEFAULT;
+  }
+  const raw = window.localStorage.getItem(paletteWidthStorageKey(columnIndex));
+  if (raw === null) {
+    return PALETTE_WIDTH_DEFAULT;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed)) {
+    return PALETTE_WIDTH_DEFAULT;
+  }
+  return clampPaletteWidth(parsed);
+}
+
+export function writeStoredPaletteWidthForColumn(
+  columnIndex: number,
+  width: number,
+): void {
+  window.localStorage.setItem(
+    paletteWidthStorageKey(columnIndex),
+    String(clampPaletteWidth(width)),
+  );
+}

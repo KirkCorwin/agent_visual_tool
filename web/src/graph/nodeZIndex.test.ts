@@ -99,7 +99,7 @@ describe("computeStackZIndexes", () => {
     expect(lifted.get(child.id)!).toBeGreaterThan(lifted.get(parent.id)!);
   });
 
-  it("places edges above parent z when connecting nested children", () => {
+  it("places sibling edges below endpoints but above the shared parent", () => {
     const parent = createNode("feature");
     const childA = createNode("task", { parentId: parent.id });
     const childB = createNode("task", { parentId: parent.id });
@@ -110,11 +110,13 @@ describe("computeStackZIndexes", () => {
     );
     const edge = createEdge("depends_on", childA.id, childB.id);
     const edgeZ = computeEdgeZIndexes([edge], z, nodes);
-    expect(edgeZ.get(edge.id)!).toBeGreaterThan(z.get(parent.id)!);
-    expect(edgeZ.get(edge.id)!).toBeGreaterThan(z.get(childA.id)!);
+    const ez = edgeZ.get(edge.id)!;
+    expect(ez).toBeGreaterThan(z.get(parent.id)!);
+    expect(ez).toBeLessThan(z.get(childA.id)!);
+    expect(ez).toBeLessThan(z.get(childB.id)!);
   });
 
-  it("uses max endpoint z for child-to-outside links", () => {
+  it("places child-to-outside edges below both endpoints and above crossed parent", () => {
     const parent = createNode("feature");
     const child = createNode("task", { parentId: parent.id });
     const outside = createNode("component");
@@ -125,9 +127,10 @@ describe("computeStackZIndexes", () => {
     );
     const edge = createEdge("depends_on", child.id, outside.id);
     const edgeZ = computeEdgeZIndexes([edge], z, nodes);
-    const expected = Math.max(z.get(child.id)!, z.get(outside.id)!) + 1;
-    expect(edgeZ.get(edge.id)).toBe(expected);
-    expect(edgeZ.get(edge.id)!).toBeGreaterThan(z.get(parent.id)!);
+    const ez = edgeZ.get(edge.id)!;
+    expect(ez).toBeLessThan(z.get(child.id)!);
+    expect(ez).toBeLessThan(z.get(outside.id)!);
+    expect(ez).toBeGreaterThan(z.get(parent.id)!);
   });
 
   it("allows a folder on a card but below other siblings on that card", () => {

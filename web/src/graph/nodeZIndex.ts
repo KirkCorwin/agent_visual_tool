@@ -5,8 +5,10 @@ const FOLDER_STEP = 2;
 const PLANNING_STEP = 10;
 /** Minimum z gap so nested cards always paint above their container. */
 const ANCESTOR_Z_GAP = 1;
-/** Edges paint above the highest endpoint and any container they cross. */
-const EDGE_ABOVE_NODE_GAP = 1;
+/** Edges sit below both endpoints; gap 2 keeps labels (edge z + 1) under endpoint nodes. */
+const EDGE_BELOW_ENDPOINT_GAP = 2;
+/** Edges rise above ancestor containers they cross (not the endpoints themselves). */
+const EDGE_ABOVE_CROSSED_ANCESTOR_GAP = 1;
 
 function nodeArea(node: PlanningNode): number {
   const { width, height } =
@@ -204,8 +206,52 @@ function getStrictAncestorIds(
   return ancestors;
 }
 
+function isDescendantOf(
+  nodeId: string,
+  ancestorId: string,
+  nodesById: Map<string, PlanningNode>,
+): boolean {
+  let current = nodesById.get(nodeId)?.parentId;
+  const seen = new Set<string>();
+  while (current && !seen.has(current)) {
+    if (current === ancestorId) {
+      return true;
+    }
+    seen.add(current);
+    current = nodesById.get(current)?.parentId;
+  }
+  return false;
+}
+
+function getSiblingIds(
+  endpointId: string,
+  nodes: PlanningNode[],
+  nodesById: Map<string, PlanningNode>,
+): string[] {
+  const parentId = nodesById.get(endpointId)?.parentId;
+  if (!parentId) {
+    return [];
+  }
+  return nodes
+    .filter((n) => n.parentId === parentId && n.id !== endpointId)
+    .map((n) => n.id);
+}
+
+/** Parent of the deeper endpoint — defines the nested branch for exterior z rules. */
+function pickBranchParentId(
+  sourceId: string,
+  targetId: string,
+  nodesById: Map<string, PlanningNode>,
+): string | undefined {
+  const sourceDepth = nodeDepth(sourceId, nodesById);
+  const targetDepth = nodeDepth(targetId, nodesById);
+  const deeperId = sourceDepth >= targetDepth ? sourceId : targetId;
+  return nodesById.get(deeperId)?.parentId;
+}
+
 /**
- * Edge z follows the topmost endpoint; also rises above strict ancestors (e.g. parent boxes).
+ * Layered edge stacking: below both endpoints, above crossed ancestor containers.
+ * Labels use edge z + 1 (still below endpoint nodes when gap >= 2).
  */
 export function computeEdgeZIndexes(
   edges: PlanningEdge[],
@@ -218,7 +264,9 @@ export function computeEdgeZIndexes(
   for (const edge of edges) {
     const sourceZ = nodeZById.get(edge.source) ?? 0;
     const targetZ = nodeZById.get(edge.target) ?? 0;
-    let z = Math.max(sourceZ, targetZ) + EDGE_ABOVE_NODE_GAP;
+    const belowSource = sourceZ - EDGE_BELOW_ENDPOINT_GAP;
+    const belowTarget = targetZ - EDGE_BELOW_ENDPOINT_GAP;
+    let z = Math.min(belowSource, belowTarget);
 
     const ancestorIds = new Set<string>();
     for (const id of getStrictAncestorIds(edge.source, nodesById)) {
@@ -233,10 +281,41 @@ export function computeEdgeZIndexes(
       }
       z = Math.max(
         z,
-        (nodeZById.get(ancestorId) ?? 0) + EDGE_ABOVE_NODE_GAP,
+        (nodeZById.get(ancestorId) ?? 0) + EDGE_ABOVE_CROSSED_ANCESTOR_GAP,
       );
     }
 
+    const ceilingCandidates = [belowSource, belowTarget];
+    for (const endpointId of [edge.source, edge.target]) {
+      for (const siblingId of getSiblingIds(endpointId, nodes, nodesById)) {
+        ceilingCandidates.push((nodeZById.get(siblingId) ?? 0) - EDGE_BELOW_ENDPOINT_GAP);
+      }
+    }
+
+    const branchParentId = pickBranchParentId(
+      edge.source,
+      edge.target,
+      nodesById,
+    );
+    if (branchParentId) {
+      for (const node of nodes) {
+        if (
+          node.id === edge.source ||
+          node.id === edge.target ||
+          ancestorIds.has(node.id)
+        ) {
+          continue;
+        }
+        if (isDescendantOf(node.id, branchParentId, nodesById)) {
+          continue;
+        }
+        ceilingCandidates.push(
+          (nodeZById.get(node.id) ?? 0) - EDGE_BELOW_ENDPOINT_GAP,
+        );
+      }
+    }
+
+    z = Math.min(z, ...ceilingCandidates);
     out.set(edge.id, z);
   }
 

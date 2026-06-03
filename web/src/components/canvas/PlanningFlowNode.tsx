@@ -201,11 +201,10 @@ export function PlanningFlowNode({ data, selected, id, width, height }: NodeProp
 
       <div className="planning-node__desc-block nodrag nopan">
         <InlineEditable
-          className="planning-node__desc"
+          className="planning-node__desc nodrag nopan"
           placeholder="description"
           value={nodeData.description ?? ""}
-          editOnClick
-          clickToEditDelay={0}
+          editOnClick={false}
           multiline
           enterCommits
           onSelect={() => {

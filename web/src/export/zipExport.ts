@@ -1,4 +1,6 @@
 import JSZip from "jszip";
+import type { EditorConfig } from "../graph/editorConfig";
+import { DEFAULT_EDITOR_CONFIG } from "../graph/editorConfig";
 import type { PlanningGraph } from "../graph/types";
 import { projectFileSlug } from "../lib/fileIO";
 import { buildExportPackage } from "./buildPackage";
@@ -27,8 +29,9 @@ export async function createZipFromPackage(
 
 export async function createPlanningPackageZip(
   graph: PlanningGraph,
+  editorConfig: EditorConfig = DEFAULT_EDITOR_CONFIG,
 ): Promise<{ blob: Blob; filename: string; fileCount: number }> {
-  const files = buildExportPackage(graph);
+  const files = buildExportPackage(graph, editorConfig);
   const blob = await createZipFromPackage(files);
   return {
     blob,

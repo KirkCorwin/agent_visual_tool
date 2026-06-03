@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createEmptyGraph, createNode } from "../graph/defaults";
-import { graphReducer } from "./graphStore";
+import { createTestGraphStoreState, graphReducer } from "./graphStore";
 
 describe("graphReducer connect", () => {
   it("adds an edge and keeps it in graph state", () => {
@@ -9,13 +9,7 @@ describe("graphReducer connect", () => {
     const b = createNode("task", { data: { title: "B" } });
     graph.nodes.push(a, b);
 
-    const initial = {
-      graph,
-      defaultEdgeType: "depends_on" as const,
-      selection: null,
-      warnings: [],
-      loadError: null,
-    };
+    const initial = createTestGraphStoreState({ graph });
 
     const next = graphReducer(initial, {
       type: "connect",
@@ -43,13 +37,7 @@ describe("graphReducer connect", () => {
     const b = createNode("agent", { data: { title: "Agent" } });
     graph.nodes.push(a, b);
 
-    const initial = {
-      graph,
-      defaultEdgeType: "depends_on" as const,
-      selection: null,
-      warnings: [],
-      loadError: null,
-    };
+    const initial = createTestGraphStoreState({ graph });
 
     const first = graphReducer(initial, {
       type: "connect",

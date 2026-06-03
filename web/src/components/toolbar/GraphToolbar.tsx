@@ -17,6 +17,7 @@ import { useGraphStore } from "../../store/graphStore";
 export function GraphToolbar() {
   const {
     graph,
+    editorConfig,
     saveGraphToFile,
     loadGraphFromJson,
     reportLoadError,
@@ -39,7 +40,7 @@ export function GraphToolbar() {
 
   const handleValidateExport = () => {
     clearLoadError();
-    const files = buildExportPackage(graph);
+    const files = buildExportPackage(graph, editorConfig);
     const markdownCount = files.size - 1;
     setExportStatus(
       `Export ready: ${markdownCount} markdown file(s) + graph.json + bootstrap prompt. Or use Export brief (.md) for one file.`,
@@ -49,7 +50,7 @@ export function GraphToolbar() {
   const handleExportBriefMd = () => {
     clearLoadError();
     setExportStatus(null);
-    const content = renderSingleMarkdownBrief(graph);
+    const content = renderSingleMarkdownBrief(graph, editorConfig);
     downloadTextFile(singleMarkdownFileName(graph), content, "text/markdown");
     setExportStatus(`Downloaded ${singleMarkdownFileName(graph)} (single brief).`);
   };
@@ -80,7 +81,10 @@ export function GraphToolbar() {
     setExportStatus(null);
     setExporting(true);
     try {
-      const { blob, filename, fileCount } = await createPlanningPackageZip(graph);
+      const { blob, filename, fileCount } = await createPlanningPackageZip(
+        graph,
+        editorConfig,
+      );
       downloadBlob(filename, blob);
       setExportStatus(`Downloaded ${filename} (${fileCount} files).`);
     } catch {

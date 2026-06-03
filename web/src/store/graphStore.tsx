@@ -41,17 +41,75 @@ import { MAX_CUSTOM_PALETTE_TYPES } from "../lib/customPaletteLimits";
 import { applyCanvasState } from "../graph/reactFlowAdapter";
 import { parsePlanningGraphJson, serializePlanningGraph } from "../graph/serialize";
 import { validatePlanningGraph } from "../graph/validation";
-import { downloadTextFile, graphFileName } from "../lib/fileIO";
+import {
+  applyEditorSettingsToProject,
+  buildEditorSettingsBundle,
+} from "../graph/applyEditorSettings";
+import { DEFAULT_CUSTOM_NODE_PROMPT } from "../graph/defaultPrompts";
+import {
+  DEFAULT_EDITOR_CONFIG,
+  DEFAULT_STACK_EDGE_MAPPING,
+  editorConfigForPersistence,
+  normalizeEditorConfig,
+  parseEditorConfigJson,
+  serializeEditorConfig,
+  type EditorConfig,
+} from "../graph/editorConfig";
+import {
+  appendTypeToPage,
+  createDefaultPalettePages,
+  moveTypeInPages,
+  removeTypeFromAllPages,
+  reorderTypeInPage,
+  renamePageInPages,
+} from "../lib/paletteLayout";
+import {
+  buildClipboardFromSelection,
+  pasteClipboard,
+  type NodeClipboard,
+} from "../lib/duplicateNodes";
+import { downloadTextFile, editorSettingsFileName, graphFileName } from "../lib/fileIO";
+import {
+  getSelectedNodeIds,
+  type Selection,
+} from "./selection";
 
-export type Selection =
-  | { kind: "node"; id: string }
-  | { kind: "edge"; id: string }
-  | null;
+export type { Selection } from "./selection";
 
-type GraphStoreState = {
+const EDITOR_CONFIG_STORAGE_KEY = "avt-editor-config";
+
+function loadStoredEditorConfig(): EditorConfig {
+  try {
+    const raw = localStorage.getItem(EDITOR_CONFIG_STORAGE_KEY);
+    if (raw) {
+      const parsed = parseEditorConfigJson(raw);
+      if (parsed.ok) {
+        return parsed.config;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return DEFAULT_EDITOR_CONFIG;
+}
+
+function persistEditorConfig(config: EditorConfig): void {
+  try {
+    localStorage.setItem(
+      EDITOR_CONFIG_STORAGE_KEY,
+      serializeEditorConfig(editorConfigForPersistence(config)),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+export type GraphStoreState = {
   graph: PlanningGraph;
+  editorConfig: EditorConfig;
   defaultEdgeType: EdgeType;
   selection: Selection;
+  clipboard: NodeClipboard | null;
   warnings: string[];
   loadError: string | null;
 };
@@ -71,9 +129,28 @@ type GraphAction =
       select?: boolean;
     }
   | { type: "set_graph_settings"; settings: Partial<GraphEditorSettings> }
-  | { type: "add_custom_palette_type" }
+  | { type: "set_editor_config"; config: Partial<EditorConfig> }
+  | { type: "load_editor_config"; config: EditorConfig }
+  | { type: "copy_selection" }
+  | { type: "paste_clipboard" }
+  | { type: "set_selection_nodes"; ids: string[] }
+  | { type: "add_custom_palette_type"; pageId?: string }
   | { type: "remove_custom_palette_type"; id: string }
   | { type: "update_custom_palette_type"; id: string; label: string }
+  | {
+      type: "move_custom_palette_type";
+      typeId: string;
+      toPageId: string;
+      toIndex: number;
+    }
+  | {
+      type: "reorder_custom_palette_type";
+      pageId: string;
+      fromIndex: number;
+      toIndex: number;
+    }
+  | { type: "rename_palette_page"; pageId: string; name: string }
+  | { type: "load_editor_settings"; config: Partial<EditorConfig> }
   | { type: "update_node"; id: string; data: Partial<NodeData> }
   | { type: "set_node_type"; id: string; nodeType: NodeType; customTypeId?: string }
   | {
@@ -102,7 +179,12 @@ function commitGraph(
   graph: PlanningGraph,
   state: GraphStoreState,
 ): GraphStoreState {
-  const touched = touchGraph(mergeGraphWithImplicitEdges(graph));
+  const touched = touchGraph(
+    mergeGraphWithImplicitEdges(
+      graph,
+      state.editorConfig?.stackEdgeMapping ?? DEFAULT_STACK_EDGE_MAPPING,
+    ),
+  );
   const validation = validatePlanningGraph(touched);
   return {
     ...state,
@@ -162,6 +244,100 @@ export function graphReducer(
       );
     }
 
+    case "set_editor_config": {
+      const editorConfig = normalizeEditorConfig({
+        ...state.editorConfig,
+        ...action.config,
+        stackEdgeMapping: action.config.stackEdgeMapping
+          ? {
+              ...state.editorConfig.stackEdgeMapping,
+              ...action.config.stackEdgeMapping,
+              childToParent: {
+                ...state.editorConfig.stackEdgeMapping.childToParent,
+                ...action.config.stackEdgeMapping?.childToParent,
+              },
+              parentToChild: {
+                ...state.editorConfig.stackEdgeMapping.parentToChild,
+                ...action.config.stackEdgeMapping?.parentToChild,
+              },
+            }
+          : state.editorConfig.stackEdgeMapping,
+        nodePrompts: action.config.nodePrompts
+          ? { ...state.editorConfig.nodePrompts, ...action.config.nodePrompts }
+          : state.editorConfig.nodePrompts,
+        customPromptsByTypeId: action.config.customPromptsByTypeId
+          ? {
+              ...state.editorConfig.customPromptsByTypeId,
+              ...action.config.customPromptsByTypeId,
+            }
+          : state.editorConfig.customPromptsByTypeId,
+        customEdgePresets: action.config.customEdgePresets
+          ? action.config.customEdgePresets
+          : state.editorConfig.customEdgePresets,
+      });
+      persistEditorConfig(editorConfig);
+      return commitGraph(state.graph, { ...state, editorConfig });
+    }
+
+    case "load_editor_config": {
+      const editorConfig = editorConfigForPersistence(
+        normalizeEditorConfig(action.config),
+      );
+      persistEditorConfig(editorConfig);
+      return commitGraph(state.graph, { ...state, editorConfig });
+    }
+
+    case "load_editor_settings": {
+      const { graph, editorConfig } = applyEditorSettingsToProject(
+        state.graph,
+        action.config,
+      );
+      const stored = editorConfigForPersistence(editorConfig);
+      persistEditorConfig(stored);
+      return commitGraph(graph, { ...state, editorConfig: stored });
+    }
+
+    case "copy_selection": {
+      const ids = getSelectedNodeIds(state.selection);
+      if (ids.length === 0) {
+        return state;
+      }
+      const clipboard = buildClipboardFromSelection(
+        state.graph.nodes,
+        state.graph.edges,
+        ids,
+        state.editorConfig.copyEdgesOnPaste,
+      );
+      return { ...state, clipboard };
+    }
+
+    case "paste_clipboard": {
+      if (!state.clipboard || state.clipboard.nodes.length === 0) {
+        return state;
+      }
+      const { nodes, edges, newRootIds } = pasteClipboard(
+        state.graph.nodes,
+        state.graph.edges,
+        state.clipboard,
+        state.editorConfig.copyEdgesOnPaste,
+      );
+      return commitGraph(
+        { ...state.graph, nodes, edges },
+        {
+          ...state,
+          selection: { kind: "nodes", ids: newRootIds },
+        },
+      );
+    }
+
+    case "set_selection_nodes": {
+      const ids = [...new Set(action.ids)];
+      return {
+        ...state,
+        selection: ids.length > 0 ? { kind: "nodes", ids } : null,
+      };
+    }
+
     case "add_custom_palette_type": {
       const existing = state.graph.customNodeTypes ?? [];
       if (existing.length >= MAX_CUSTOM_PALETTE_TYPES) {
@@ -172,12 +348,24 @@ export function graphReducer(
         label: `Custom ${existing.length + 1}`,
         color: nextCustomPinkColor(existing),
       };
+      const pages = state.graph.customPalettePages ?? createDefaultPalettePages();
+      const pageId = action.pageId ?? "palette-1";
+      const customPalettePages = appendTypeToPage(pages, pageId, entry.id);
+      const editorConfig = {
+        ...state.editorConfig,
+        customPromptsByTypeId: {
+          ...state.editorConfig.customPromptsByTypeId,
+          [entry.id]: DEFAULT_CUSTOM_NODE_PROMPT,
+        },
+      };
+      persistEditorConfig(editorConfig);
       return commitGraph(
         {
           ...state.graph,
           customNodeTypes: [...existing, entry],
+          customPalettePages,
         },
-        state,
+        { ...state, editorConfig },
       );
     }
 
@@ -185,7 +373,47 @@ export function graphReducer(
       const customNodeTypes = (state.graph.customNodeTypes ?? []).filter(
         (t) => t.id !== action.id,
       );
-      return commitGraph({ ...state.graph, customNodeTypes }, state);
+      const pages = removeTypeFromAllPages(
+        state.graph.customPalettePages ?? [],
+        action.id,
+      );
+      const { [action.id]: _removed, ...customPromptsByTypeId } =
+        state.editorConfig.customPromptsByTypeId;
+      const editorConfig = { ...state.editorConfig, customPromptsByTypeId };
+      persistEditorConfig(editorConfig);
+      return commitGraph(
+        { ...state.graph, customNodeTypes, customPalettePages: pages },
+        { ...state, editorConfig },
+      );
+    }
+
+    case "move_custom_palette_type": {
+      const pages = moveTypeInPages(
+        state.graph.customPalettePages ?? [],
+        action.typeId,
+        action.toPageId,
+        action.toIndex,
+      );
+      return commitGraph({ ...state.graph, customPalettePages: pages }, state);
+    }
+
+    case "reorder_custom_palette_type": {
+      const pages = reorderTypeInPage(
+        state.graph.customPalettePages ?? [],
+        action.pageId,
+        action.fromIndex,
+        action.toIndex,
+      );
+      return commitGraph({ ...state.graph, customPalettePages: pages }, state);
+    }
+
+    case "rename_palette_page": {
+      const pages = renamePageInPages(
+        state.graph.customPalettePages ?? [],
+        action.pageId,
+        action.name,
+      );
+      return commitGraph({ ...state.graph, customPalettePages: pages }, state);
     }
 
     case "update_custom_palette_type": {
@@ -233,7 +461,7 @@ export function graphReducer(
         {
           ...state,
           selection: select
-            ? { kind: "node", id: node.id }
+            ? { kind: "nodes", ids: [node.id] }
             : state.selection,
         },
       );
@@ -347,9 +575,13 @@ export function graphReducer(
       const edges = state.graph.edges.filter(
         (e) => !removeIds.has(e.source) && !removeIds.has(e.target),
       );
-      const selection =
-        state.selection?.kind === "node" && removeIds.has(state.selection.id)
-          ? null
+      const selected = getSelectedNodeIds(state.selection);
+      const nextSelected = selected.filter((id) => !removeIds.has(id));
+      const selection: Selection =
+        state.selection?.kind === "nodes"
+          ? nextSelected.length > 0
+            ? { kind: "nodes", ids: nextSelected }
+            : null
           : state.selection;
       return commitGraph({ ...state.graph, nodes, edges }, { ...state, selection });
     }
@@ -447,8 +679,11 @@ export function graphReducer(
 
 type GraphStoreValue = {
   graph: PlanningGraph;
+  editorConfig: EditorConfig;
   defaultEdgeType: EdgeType;
   selection: Selection;
+  selectedNodeIds: string[];
+  selectedNodes: PlanningGraph["nodes"];
   warnings: string[];
   selectedNode: PlanningGraph["nodes"][number] | null;
   selectedEdge: PlanningEdge | null;
@@ -463,14 +698,31 @@ type GraphStoreValue = {
     },
   ) => void;
   setGraphSettings: (settings: Partial<GraphEditorSettings>) => void;
-  addCustomPaletteType: () => void;
+  setEditorConfig: (config: Partial<EditorConfig>) => void;
+  saveEditorConfigToFile: () => void;
+  loadEditorConfigFromJson: (json: string) => boolean;
+  copySelection: () => void;
+  pasteClipboard: () => void;
+  addCustomPaletteType: (pageId?: string) => void;
   removeCustomPaletteType: (id: string) => void;
   updateCustomPaletteType: (id: string, label: string) => void;
+  moveCustomPaletteType: (
+    typeId: string,
+    toPageId: string,
+    toIndex: number,
+  ) => void;
+  reorderCustomPaletteType: (
+    pageId: string,
+    fromIndex: number,
+    toIndex: number,
+  ) => void;
+  renamePalettePage: (pageId: string, name: string) => void;
   updateNodeData: (id: string, data: Partial<NodeData>) => void;
   setNodeType: (id: string, nodeType: NodeType, customTypeId?: string) => void;
   deleteSelected: () => void;
   setDefaultEdgeType: (edgeType: EdgeType) => void;
   selectNode: (id: string | null) => void;
+  selectNodes: (ids: string[]) => void;
   selectEdge: (id: string | null) => void;
   onConnect: (connection: Connection) => void;
   syncCanvas: (nodes: Node[], reassignParentIds?: Iterable<string>) => void;
@@ -487,10 +739,18 @@ type GraphStoreValue = {
 
 const GraphStoreContext = createContext<GraphStoreValue | null>(null);
 
+export function createTestGraphStoreState(
+  partial: Partial<GraphStoreState> = {},
+): GraphStoreState {
+  return { ...initialState, ...partial };
+}
+
 const initialState: GraphStoreState = {
   graph: createInitialEditorGraph(),
+  editorConfig: loadStoredEditorConfig(),
   defaultEdgeType: "depends_on",
   selection: null,
+  clipboard: null,
   warnings: [],
   loadError: null,
 };
@@ -498,13 +758,22 @@ const initialState: GraphStoreState = {
 export function GraphStoreProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(graphReducer, initialState);
 
+  const selectedNodeIds = useMemo(
+    () => getSelectedNodeIds(state.selection),
+    [state.selection],
+  );
+
   const selectedNode = useMemo(() => {
-    const sel = state.selection;
-    if (sel?.kind !== "node") {
+    if (selectedNodeIds.length !== 1) {
       return null;
     }
-    return state.graph.nodes.find((n) => n.id === sel.id) ?? null;
-  }, [state.graph.nodes, state.selection]);
+    return state.graph.nodes.find((n) => n.id === selectedNodeIds[0]) ?? null;
+  }, [state.graph.nodes, selectedNodeIds]);
+
+  const selectedNodes = useMemo(() => {
+    const idSet = new Set(selectedNodeIds);
+    return state.graph.nodes.filter((n) => idSet.has(n.id));
+  }, [state.graph.nodes, selectedNodeIds]);
 
   const selectedEdge = useMemo(() => {
     const sel = state.selection;
@@ -540,8 +809,8 @@ export function GraphStoreProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "set_graph_settings", settings });
   }, []);
 
-  const addCustomPaletteType = useCallback(() => {
-    dispatch({ type: "add_custom_palette_type" });
+  const addCustomPaletteType = useCallback((pageId?: string) => {
+    dispatch({ type: "add_custom_palette_type", pageId });
   }, []);
 
   const removeCustomPaletteType = useCallback((id: string) => {
@@ -550,6 +819,29 @@ export function GraphStoreProvider({ children }: { children: ReactNode }) {
 
   const updateCustomPaletteType = useCallback((id: string, label: string) => {
     dispatch({ type: "update_custom_palette_type", id, label });
+  }, []);
+
+  const moveCustomPaletteType = useCallback(
+    (typeId: string, toPageId: string, toIndex: number) => {
+      dispatch({ type: "move_custom_palette_type", typeId, toPageId, toIndex });
+    },
+    [],
+  );
+
+  const reorderCustomPaletteType = useCallback(
+    (pageId: string, fromIndex: number, toIndex: number) => {
+      dispatch({
+        type: "reorder_custom_palette_type",
+        pageId,
+        fromIndex,
+        toIndex,
+      });
+    },
+    [],
+  );
+
+  const renamePalettePage = useCallback((pageId: string, name: string) => {
+    dispatch({ type: "rename_palette_page", pageId, name });
   }, []);
 
   const updateNodeData = useCallback((id: string, data: Partial<NodeData>) => {
@@ -564,9 +856,14 @@ export function GraphStoreProvider({ children }: { children: ReactNode }) {
   );
 
   const deleteSelected = useCallback(() => {
-    if (state.selection?.kind === "node") {
-      dispatch({ type: "delete_node", id: state.selection.id });
-    } else if (state.selection?.kind === "edge") {
+    const ids = getSelectedNodeIds(state.selection);
+    if (ids.length > 0) {
+      for (const id of ids) {
+        dispatch({ type: "delete_node", id });
+      }
+      return;
+    }
+    if (state.selection?.kind === "edge") {
       dispatch({ type: "delete_edge", id: state.selection.id });
     }
   }, [state.selection]);
@@ -578,9 +875,46 @@ export function GraphStoreProvider({ children }: { children: ReactNode }) {
   const selectNode = useCallback((id: string | null) => {
     dispatch({
       type: "set_selection",
-      selection: id ? { kind: "node", id } : null,
+      selection: id ? { kind: "nodes", ids: [id] } : null,
     });
   }, []);
+
+  const selectNodes = useCallback((ids: string[]) => {
+    dispatch({ type: "set_selection_nodes", ids });
+  }, []);
+
+  const copySelection = useCallback(() => {
+    dispatch({ type: "copy_selection" });
+  }, []);
+
+  const pasteClipboard = useCallback(() => {
+    dispatch({ type: "paste_clipboard" });
+  }, []);
+
+  const setEditorConfig = useCallback((config: Partial<EditorConfig>) => {
+    dispatch({ type: "set_editor_config", config });
+  }, []);
+
+  const loadEditorConfigFromJson = useCallback((json: string): boolean => {
+    const result = parseEditorConfigJson(json);
+    if (!result.ok) {
+      dispatch({ type: "set_load_error", error: result.error });
+      return false;
+    }
+    dispatch({ type: "load_editor_settings", config: result.config });
+    return true;
+  }, []);
+
+  const saveEditorConfigToFile = useCallback(() => {
+    const exportConfig: EditorConfig = {
+      ...state.editorConfig,
+      settingsBundle: buildEditorSettingsBundle(state.graph),
+    };
+    downloadTextFile(
+      editorSettingsFileName(state.graph),
+      serializeEditorConfig(exportConfig),
+    );
+  }, [state.graph, state.editorConfig]);
 
   const selectEdge = useCallback((id: string | null) => {
     if (id) {
@@ -672,22 +1006,34 @@ export function GraphStoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo<GraphStoreValue>(
     () => ({
       graph: state.graph,
+      editorConfig: state.editorConfig,
       defaultEdgeType: state.defaultEdgeType,
       selection: state.selection,
+      selectedNodeIds,
+      selectedNodes,
       warnings: state.warnings,
       selectedNode,
       selectedEdge,
       dispatch,
       addNode,
       setGraphSettings,
+      setEditorConfig,
+      saveEditorConfigToFile,
+      loadEditorConfigFromJson,
+      copySelection,
+      pasteClipboard,
       addCustomPaletteType,
       removeCustomPaletteType,
       updateCustomPaletteType,
+      moveCustomPaletteType,
+      reorderCustomPaletteType,
+      renamePalettePage,
       updateNodeData,
       setNodeType,
       deleteSelected,
       setDefaultEdgeType,
       selectNode,
+      selectNodes,
       selectEdge,
       onConnect,
       syncCanvas,
@@ -703,18 +1049,29 @@ export function GraphStoreProvider({ children }: { children: ReactNode }) {
     }),
     [
       state,
+      selectedNodeIds,
+      selectedNodes,
       selectedNode,
       selectedEdge,
       addNode,
       setGraphSettings,
+      setEditorConfig,
+      saveEditorConfigToFile,
+      loadEditorConfigFromJson,
+      copySelection,
+      pasteClipboard,
       addCustomPaletteType,
       removeCustomPaletteType,
       updateCustomPaletteType,
+      moveCustomPaletteType,
+      reorderCustomPaletteType,
+      renamePalettePage,
       updateNodeData,
       setNodeType,
       deleteSelected,
       setDefaultEdgeType,
       selectNode,
+      selectNodes,
       selectEdge,
       onConnect,
       syncCanvas,
@@ -726,6 +1083,9 @@ export function GraphStoreProvider({ children }: { children: ReactNode }) {
       updateGraphName,
       loadSampleGraph,
       newBlankGraph,
+      moveCustomPaletteType,
+      reorderCustomPaletteType,
+      renamePalettePage,
     ],
   );
 

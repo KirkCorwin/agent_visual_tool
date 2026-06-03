@@ -1,3 +1,5 @@
+import type { EditorConfig } from "../graph/editorConfig";
+import { DEFAULT_EDITOR_CONFIG } from "../graph/editorConfig";
 import type { PlanningEdge, PlanningGraph, PlanningNode } from "../graph/types";
 import { projectFileSlug } from "../lib/fileIO";
 import { formatEdgeType, isCustomEdge } from "../lib/edgeDisplay";
@@ -91,12 +93,17 @@ function renderGraphConnections(graph: PlanningGraph): string {
 }
 
 /** One markdown file: bootstrap prompt + full node list + connection graph. */
-export function renderSingleMarkdownBrief(graph: PlanningGraph): string {
+export function renderSingleMarkdownBrief(
+  graph: PlanningGraph,
+  editorConfig: EditorConfig = DEFAULT_EDITOR_CONFIG,
+): string {
   const pathByNodeId = buildPathByNodeId(graph);
-  const bootstrap = renderBootstrapPrompt(graph, pathByNodeId, [
-    "planning/README.md",
-    "graph.json",
-  ]);
+  const bootstrap = renderBootstrapPrompt(
+    graph,
+    pathByNodeId,
+    ["planning/README.md", "graph.json"],
+    editorConfig,
+  );
 
   const lines = [
     `# ${graph.meta.name} — planning brief`,

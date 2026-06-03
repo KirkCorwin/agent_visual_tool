@@ -1,16 +1,17 @@
 import { GraphCanvas } from "./components/canvas/GraphCanvas";
 import { ProjectNameHeader } from "./components/header/ProjectNameHeader";
 import { SelectionInspector } from "./components/inspector/SelectionInspector";
-import { NodePalette } from "./components/palette/NodePalette";
-import { ResizablePaletteShell } from "./components/palette/ResizablePaletteShell";
+import { PaletteDock } from "./components/palette/PaletteDock";
 import { GraphToolbar } from "./components/toolbar/GraphToolbar";
 import { GraphCanvasCaptureProvider } from "./context/GraphCanvasCaptureContext";
 import { GraphStoreProvider } from "./store/graphStore";
+import { PaletteUiProvider } from "./store/paletteUiStore";
 import "./App.css";
 
 export default function App() {
   return (
     <GraphStoreProvider>
+      <PaletteUiProvider>
       <GraphCanvasCaptureProvider>
       <div className="app">
         <header className="app__header">
@@ -26,14 +27,13 @@ export default function App() {
           </div>
         </header>
         <div className="editor">
-          <ResizablePaletteShell>
-            <NodePalette />
-          </ResizablePaletteShell>
+          <PaletteDock />
           <GraphCanvas />
           <SelectionInspector />
         </div>
       </div>
       </GraphCanvasCaptureProvider>
+      </PaletteUiProvider>
     </GraphStoreProvider>
   );
 }

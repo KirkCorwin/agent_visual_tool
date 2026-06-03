@@ -17,6 +17,22 @@ export function graphFileName(graph: PlanningGraph): string {
   return `${projectFileSlug(graph.meta.name, "graph")}${GRAPH_FILE_SUFFIX}`;
 }
 
+const EDITOR_SETTINGS_SUFFIX = ".editor-settings.json";
+
+export function editorSettingsFileName(graph?: PlanningGraph): string {
+  const slug = graph
+    ? projectFileSlug(graph.meta.name, "settings")
+    : "agent-visual-tool";
+  return `${slug}${EDITOR_SETTINGS_SUFFIX}`;
+}
+
+export function isLikelyEditorSettingsFile(file: File): boolean {
+  return (
+    file.name.endsWith(EDITOR_SETTINGS_SUFFIX) ||
+    (file.type === "application/json" && file.name.includes("editor-settings"))
+  );
+}
+
 export function downloadBlob(filename: string, blob: Blob): void {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");

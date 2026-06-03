@@ -49,6 +49,13 @@ export type CustomPaletteType = {
   color: string;
 };
 
+/** One of four custom-type palette panels (palette 1 = master column). */
+export type CustomPalettePage = {
+  id: string;
+  name: string;
+  customTypeIds: string[];
+};
+
 /** 0 = standard palette; 1–3 = accessible palette slots (unlabeled in UI). */
 export type AccessibleColorMode = 0 | 1 | 2 | 3;
 
@@ -117,6 +124,8 @@ export type PlanningGraph = {
   edges: PlanningEdge[];
   settings?: GraphEditorSettings;
   customNodeTypes?: CustomPaletteType[];
+  /** Four palette pages; normalized on load. */
+  customPalettePages?: CustomPalettePage[];
 };
 
 export type ParseSuccess = {

@@ -2,26 +2,21 @@ import { describe, expect, it } from "vitest";
 import { createEmptyGraph, createNode } from "../graph/defaults";
 import { serializePlanningGraph } from "../graph/serialize";
 import { parsePlanningGraphJson } from "../graph/serialize";
-import { graphReducer, type GraphStoreState } from "./graphStore";
+import { createTestGraphStoreState, graphReducer } from "./graphStore";
 
 describe("selection", () => {
-  const baseState = (): GraphStoreState => ({
-    graph: createEmptyGraph("Test"),
-    defaultEdgeType: "depends_on",
-    selection: null,
-    warnings: [],
-    loadError: null,
-  });
+  const baseState = () =>
+    createTestGraphStoreState({ graph: createEmptyGraph("Test") });
 
   it("clear_edge_selection keeps active node selection", () => {
     const node = createNode("task", { data: { title: "T" } });
     let state = baseState();
     state = graphReducer(state, {
       type: "set_selection",
-      selection: { kind: "node", id: node.id },
+      selection: { kind: "nodes", ids: [node.id] },
     });
     state = graphReducer(state, { type: "clear_edge_selection" });
-    expect(state.selection).toEqual({ kind: "node", id: node.id });
+    expect(state.selection).toEqual({ kind: "nodes", ids: [node.id] });
   });
 
   it("clear_edge_selection clears edge selection", () => {

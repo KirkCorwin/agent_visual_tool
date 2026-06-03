@@ -1,15 +1,46 @@
+import type { StackEdgeMapping } from "./editorConfig";
+import { DEFAULT_STACK_EDGE_MAPPING } from "./editorConfig";
 import type { PlanningEdge, PlanningGraph } from "./types";
 
 export function isImplicitEdge(edge: PlanningEdge): boolean {
   return edge.data?.implicit === true;
 }
 
-function implicitEdgeId(kind: string, childId: string): string {
-  return `implicit:${kind}:${childId}`;
+function edgeFromSlot(
+  kind: string,
+  slot: StackEdgeMapping["childToParent"],
+  source: string,
+  target: string,
+): PlanningEdge {
+  const base = {
+    id: implicitEdgeId(kind, source, target),
+    source,
+    target,
+    type: slot.edgeType,
+    data: { implicit: true as const },
+  };
+  if (slot.isCustom && slot.label?.trim()) {
+    return {
+      ...base,
+      data: {
+        implicit: true,
+        isCustom: true,
+        label: slot.label.trim(),
+      },
+    };
+  }
+  return base;
 }
 
-/** Stack parent → child: assigned_to (child→parent) and implements (parent→child), hidden on canvas. */
-export function buildImplicitStackEdges(graph: PlanningGraph): PlanningEdge[] {
+function implicitEdgeId(kind: string, source: string, target: string): string {
+  return `implicit:${kind}:${source}:${target}`;
+}
+
+/** Stack parent ↔ child implicit edges (hidden on canvas); types from editor config. */
+export function buildImplicitStackEdges(
+  graph: PlanningGraph,
+  mapping: StackEdgeMapping = DEFAULT_STACK_EDGE_MAPPING,
+): PlanningEdge[] {
   const edges: PlanningEdge[] = [];
   const nodesById = new Map(graph.nodes.map((n) => [n.id, n]));
 
@@ -21,31 +52,39 @@ export function buildImplicitStackEdges(graph: PlanningGraph): PlanningEdge[] {
     if (!parent) {
       continue;
     }
-    edges.push({
-      id: implicitEdgeId("assigned_to", node.id),
-      type: "assigned_to",
-      source: node.id,
-      target: parent.id,
-      data: { implicit: true },
-    });
-    edges.push({
-      id: implicitEdgeId("implements", node.id),
-      type: "implements",
-      source: parent.id,
-      target: node.id,
-      data: { implicit: true },
-    });
+    edges.push(
+      edgeFromSlot(
+        "childToParent",
+        mapping.childToParent,
+        node.id,
+        parent.id,
+      ),
+    );
+    edges.push(
+      edgeFromSlot(
+        "parentToChild",
+        mapping.parentToChild,
+        parent.id,
+        node.id,
+      ),
+    );
   }
   return edges;
 }
 
-export function syncImplicitStackEdges(graph: PlanningGraph): PlanningGraph {
+export function syncImplicitStackEdges(
+  graph: PlanningGraph,
+  mapping?: StackEdgeMapping,
+): PlanningGraph {
   const explicit = graph.edges.filter((edge) => !isImplicitEdge(edge));
-  const implicit = buildImplicitStackEdges(graph);
+  const implicit = buildImplicitStackEdges(graph, mapping);
   return { ...graph, edges: [...explicit, ...implicit] };
 }
 
 /** Rebuild implicit edges after parentId changes; keep user-created edges. */
-export function mergeGraphWithImplicitEdges(graph: PlanningGraph): PlanningGraph {
-  return syncImplicitStackEdges(graph);
+export function mergeGraphWithImplicitEdges(
+  graph: PlanningGraph,
+  mapping?: StackEdgeMapping,
+): PlanningGraph {
+  return syncImplicitStackEdges(graph, mapping);
 }

@@ -19,6 +19,14 @@ Nodes may include optional `folderId` pointing at a folder node. On drag-stop, m
 | `assigned_to` | Work owned by an agent |
 | `references` | Non-blocking reference |
 
+## Canvas UX and z-order
+
+Agents changing the React Flow canvas (stacking, opacity, inline edit, edge labels) must read **[CANVAS_DESIGN.md](./CANVAS_DESIGN.md)** first. It documents current behavior, intended stacking rules, the active fix checklist, and **custom palette panels** (four columns, drag-reorder, settings sync).
+
+## Editor settings (v2)
+
+`.editor-settings.json` holds stack-edge mapping, built-in `nodePrompts`, `bootstrapPrompt`, `customPromptsByTypeId`, and `customEdgePresets` (semantic relations such as loop/contain selectable from edge menus). Saving settings embeds a `settingsBundle` snapshot of `customNodeTypes` + `customPalettePages` for additive import; layout and types remain authoritative in `graph.json` after load.
+
 ## Layering
 
 ```text

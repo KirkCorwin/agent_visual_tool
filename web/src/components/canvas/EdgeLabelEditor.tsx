@@ -2,22 +2,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useReactFlow } from "@xyflow/react";
 
-import { EDGE_TYPES, type EdgeType } from "../../graph/types";
-
+import type { EdgeType } from "../../graph/types";
 import {
-
-  CUSTOM_EDGE_OPTION,
-
+  findPresetForEdge,
+  getEdgeRelationMenuValue,
+} from "../../lib/customEdgePresets";
+import {
   formatEdgeType,
-
   getEdgeCanvasSummary,
-
   getEdgeMinimalLetter,
-
   isCustomEdge,
-
 } from "../../lib/edgeDisplay";
-
+import { EdgeRelationMenuItems } from "../shared/EdgeRelationOptions";
 import { useGraphStore } from "../../store/graphStore";
 
 import { InlineEditable } from "../shared/InlineEditable";
@@ -62,7 +58,8 @@ export function EdgeLabelEditor({
 
 }: EdgeLabelEditorProps) {
 
-  const { graph, dispatch, selectEdge, selectNode } = useGraphStore();
+  const { graph, editorConfig, dispatch, selectEdge, selectNode } = useGraphStore();
+  const presets = editorConfig.customEdgePresets;
 
   const { screenToFlowPosition } = useReactFlow();
 
@@ -243,6 +240,8 @@ export function EdgeLabelEditor({
 
 
   const custom = isCustomEdge(edge);
+  const matchedPreset = findPresetForEdge(edge, presets);
+  const menuValue = getEdgeRelationMenuValue(edge, presets);
 
   const minimalLabels = graph.settings?.minimalEdgeLabels === true;
 
@@ -250,27 +249,11 @@ export function EdgeLabelEditor({
 
   const typeButtonLabel = minimalLabels
     ? getEdgeMinimalLetter(edge)
-    : custom
-      ? "custom"
-      : formatEdgeType(edge.type);
-
-
-
-  const pickType = (value: EdgeType | typeof CUSTOM_EDGE_OPTION) => {
-
-    if (value === CUSTOM_EDGE_OPTION) {
-
-      patchEdge({ isCustom: true });
-
-    } else {
-
-      patchEdge({ edgeType: value, isCustom: false });
-
-    }
-
-    setMenuOpen(false);
-
-  };
+    : matchedPreset
+      ? matchedPreset.label
+      : custom
+        ? "custom"
+        : formatEdgeType(edge.type);
 
 
 
@@ -446,53 +429,22 @@ export function EdgeLabelEditor({
       {menuOpen ? (
 
         <ul className="edge-label__menu" role="listbox">
-
-          {EDGE_TYPES.map((edgeType) => (
-
-            <li key={edgeType}>
-
-              <button
-
-                type="button"
-
-                role="option"
-
-                className="edge-label__menu-item"
-
-                onClick={() => pickType(edgeType)}
-
-              >
-
-                {formatEdgeType(edgeType)}
-
-              </button>
-
-            </li>
-
-          ))}
-
-          <li className="edge-label__menu-divider" aria-hidden />
-
-          <li>
-
-            <button
-
-              type="button"
-
-              role="option"
-
-              className={`edge-label__menu-item${custom ? " edge-label__menu-item--active" : ""}`}
-
-              onClick={() => pickType(CUSTOM_EDGE_OPTION)}
-
-            >
-
-              Custom
-
-            </button>
-
-          </li>
-
+          <EdgeRelationMenuItems
+            presets={presets}
+            activeValue={menuValue}
+            onPickBuiltin={(edgeType) => {
+              patchEdge({ edgeType, isCustom: false, label: undefined });
+              setMenuOpen(false);
+            }}
+            onPickPreset={(preset) => {
+              patchEdge({ isCustom: true, label: preset.label });
+              setMenuOpen(false);
+            }}
+            onPickCustom={() => {
+              patchEdge({ isCustom: true });
+              setMenuOpen(false);
+            }}
+          />
         </ul>
 
       ) : null}

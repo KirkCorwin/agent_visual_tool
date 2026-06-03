@@ -3,16 +3,23 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import {
   clampPaletteWidth,
   PALETTE_WIDTH_DEFAULT,
-  readStoredPaletteWidth,
-  writeStoredPaletteWidth,
+  readStoredPaletteWidthForColumn,
+  writeStoredPaletteWidthForColumn,
 } from "../../lib/paletteWidth";
 
 type ResizablePaletteShellProps = {
   children: ReactNode;
+  /** 1-based column index for width localStorage (1 = master). */
+  columnIndex?: number;
 };
 
-export function ResizablePaletteShell({ children }: ResizablePaletteShellProps) {
-  const [width, setWidth] = useState(readStoredPaletteWidth);
+export function ResizablePaletteShell({
+  children,
+  columnIndex = 1,
+}: ResizablePaletteShellProps) {
+  const [width, setWidth] = useState(() =>
+    readStoredPaletteWidthForColumn(columnIndex),
+  );
   const [isResizing, setIsResizing] = useState(false);
   const resizingRef = useRef(false);
   const startXRef = useRef(0);
@@ -49,7 +56,7 @@ export function ResizablePaletteShell({ children }: ResizablePaletteShellProps) 
       const delta = ev.clientX - startXRef.current;
       const next = clampPaletteWidth(startWidthRef.current + delta);
       setWidth(next);
-      writeStoredPaletteWidth(next);
+      writeStoredPaletteWidthForColumn(columnIndex, next);
     };
 
     window.addEventListener("pointermove", onMove);
@@ -75,9 +82,9 @@ export function ResizablePaletteShell({ children }: ResizablePaletteShellProps) 
       }
       event.preventDefault();
       setWidth(next);
-      writeStoredPaletteWidth(next);
+      writeStoredPaletteWidthForColumn(columnIndex, next);
     },
-    [width],
+    [width, columnIndex],
   );
 
   return (

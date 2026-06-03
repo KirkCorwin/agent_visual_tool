@@ -1,3 +1,5 @@
+import type { EditorConfig } from "../graph/editorConfig";
+import { DEFAULT_EDITOR_CONFIG } from "../graph/editorConfig";
 import type { PlanningGraph, PlanningNode } from "../graph/types";
 import { linkToNode } from "./paths";
 
@@ -98,14 +100,14 @@ export function renderBootstrapPrompt(
   graph: PlanningGraph,
   pathByNodeId: Map<string, string>,
   packagePaths: Iterable<string>,
+  editorConfig: EditorConfig = DEFAULT_EDITOR_CONFIG,
 ): string {
   const lines: string[] = [
     `# Bootstrap: ${graph.meta.name}`,
     "",
-    "You are an AI coding agent receiving a planning package exported from a visual",
-    "project graph. **Read `graph.json` and linked markdown before writing code.**",
+    editorConfig.bootstrapPrompt.trim(),
     "",
-    "## Start here",
+    "## Package index",
     "",
     "1. Open [planning/README.md](../planning/README.md) for the full index.",
     "2. Use [graph.json](../graph.json) as the canonical structure.",

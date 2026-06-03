@@ -123,10 +123,150 @@
 
 .editor {
   flex: 1;
-  display: grid;
-  grid-template-columns: auto 1fr 260px;
+  display: flex;
+  flex-direction: row;
   gap: 0.75rem;
   min-height: 0;
+  min-width: 0;
+}
+
+.editor > .graph-canvas {
+  flex: 1;
+  min-width: 0;
+}
+
+.editor > .inspector {
+  flex: 0 0 260px;
+  min-width: 0;
+}
+
+.palette-dock {
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  gap: 0;
+  min-height: 0;
+}
+
+.palette__column-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.35rem;
+  margin-bottom: 0.25rem;
+}
+
+.palette__column-header-actions {
+  display: flex;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
+.palette__page-title {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.palette__page-name-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.15rem 0.35rem;
+  border: 1px solid #484f58;
+  border-radius: 4px;
+  background: #0d1117;
+  color: #e6edf3;
+}
+
+.palette__column-close {
+  border: none;
+  background: transparent;
+  color: #8b949e;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.25rem;
+}
+
+.palette__column-close:hover {
+  color: #e6edf3;
+}
+
+.palette__launchers {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #30363d;
+}
+
+.palette__launcher {
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  background: #161b22;
+  color: #c9d1d9;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.palette__launcher:hover {
+  border-color: #484f58;
+}
+
+.palette__launcher--open {
+  border-color: #58a6ff;
+}
+
+.palette__launcher--accept {
+  border-color: #e6edf3;
+}
+
+.palette__launcher--reject {
+  border-color: #f85149;
+}
+
+.palette__nodes--drop-target {
+  outline: 1px solid #e6edf3;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.palette__max-label {
+  display: block;
+  width: 100%;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #8b949e;
+  padding: 0.35rem;
+}
+
+.palette__drag-handle {
+  cursor: grab;
+  font-size: 0.65rem;
+  color: #8b949e;
+  padding: 0 0.2rem;
+  user-select: none;
+}
+
+.palette__custom-row--dragging {
+  opacity: 0.4;
+}
+
+.palette__custom-row--overlay .palette__btn {
+  box-shadow: 0 4px 12px rgba(0, 0,  0, 0.45);
+}
+
+.palette__custom-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
 }
 
 .palette-shell {
@@ -534,8 +674,16 @@
 
 @media (max-width: 900px) {
   .editor {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr auto;
+    flex-direction: column;
+  }
+
+  .editor > .inspector {
+    flex: 0 0 auto;
+  }
+
+  .palette-dock {
+    flex-direction: column;
+    width: 100%;
   }
 
   .palette-shell {

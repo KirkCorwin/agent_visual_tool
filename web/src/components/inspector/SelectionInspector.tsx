@@ -1,16 +1,20 @@
-import {
-  CUSTOM_EDGE_OPTION,
-  getEdgeTypeMenuValue,
-  isCustomEdge,
-} from "../../lib/edgeDisplay";
+import { useMemo } from "react";
+import { isImplicitEdge } from "../../graph/implicitEdges";
+import { isCustomEdge } from "../../lib/edgeDisplay";
+import { getEdgeRelationMenuValue } from "../../lib/customEdgePresets";
 import { PLANNING_NODE_TYPES } from "../../lib/planningNodeTypes";
 import { EDGE_TYPES, type EdgeType, type NodeType } from "../../graph/types";
+import {
+  EdgeRelationSelectOptions,
+  parseEdgeRelationSelectChange,
+} from "../shared/EdgeRelationOptions";
 import { NODE_TYPE_LABELS, resolveNodeTypeLabel } from "../canvas/nodeStyles";
 import { useGraphStore } from "../../store/graphStore";
 
 export function SelectionInspector() {
   const {
     selectedNode,
+    selectedNodeIds,
     selectedEdge,
     selection,
     updateNodeData,
@@ -21,7 +25,19 @@ export function SelectionInspector() {
     setDefaultEdgeType,
     warnings,
     graph,
+    editorConfig,
   } = useGraphStore();
+  const edgePresets = editorConfig.customEdgePresets;
+
+  const multiSelect = selectedNodeIds.length > 1;
+  const connectedEdgeCount = useMemo(() => {
+    const ids = new Set(selectedNodeIds);
+    return graph.edges.filter(
+      (e) =>
+        !isImplicitEdge(e) &&
+        (ids.has(e.source) || ids.has(e.target)),
+    ).length;
+  }, [graph.edges, selectedNodeIds]);
 
   return (
     <aside className="inspector">
@@ -41,14 +57,33 @@ export function SelectionInspector() {
             ))}
           </select>
         </label>
-        <p className="hint">Hold C, then click nodes to link. Shift+click multi-selects.</p>
+        <p className="hint">
+          Hold C to link · Shift+click multi-select · Ctrl+C / Ctrl+V copy nodes
+        </p>
       </section>
 
       {!selection ? (
         <p className="inspector__empty">Select a node or edge to edit.</p>
       ) : null}
 
-      {selectedNode ? (
+      {multiSelect ? (
+        <section className="inspector__section">
+          <h3 className="inspector__heading">Multiple selection</h3>
+          <p className="inspector__stat">
+            {selectedNodeIds.length} nodes selected
+          </p>
+          <p className="inspector__stat">
+            {connectedEdgeCount} connected edge
+            {connectedEdgeCount === 1 ? "" : "s"} (explicit)
+          </p>
+          <p className="hint">
+            Drag to move together · Delete removes all · Double-click a node on
+            the canvas to edit title or description
+          </p>
+        </section>
+      ) : null}
+
+      {selectedNode && !multiSelect ? (
         <section className="inspector__section">
           <h3 className="inspector__heading">
             {resolveNodeTypeLabel(graph, selectedNode)}
@@ -196,25 +231,16 @@ export function SelectionInspector() {
           <label className="field">
             <span className="field__label">Type</span>
             <select
-              value={getEdgeTypeMenuValue(selectedEdge)}
+              value={getEdgeRelationMenuValue(selectedEdge, edgePresets)}
               onChange={(e) => {
-                const value = e.target.value;
-                if (value === CUSTOM_EDGE_OPTION) {
-                  updateSelectedEdge({ isCustom: true });
-                } else {
-                  updateSelectedEdge({
-                    edgeType: value as EdgeType,
-                    isCustom: false,
-                  });
-                }
+                const patch = parseEdgeRelationSelectChange(
+                  e.target.value,
+                  edgePresets,
+                );
+                updateSelectedEdge(patch);
               }}
             >
-              {EDGE_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t.replace(/_/g, " ")}
-                </option>
-              ))}
-              <option value={CUSTOM_EDGE_OPTION}>Custom</option>
+              <EdgeRelationSelectOptions presets={edgePresets} />
             </select>
           </label>
           {isCustomEdge(selectedEdge) ? (

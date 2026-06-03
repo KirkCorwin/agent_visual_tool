@@ -484,6 +484,45 @@ export function parseUnknownGraph(raw: unknown): ParseResult {
     return { ok: false, errors };
   }
 
+  const pagesRaw = raw.customPalettePages;
+  let customPalettePages: PlanningGraph["customPalettePages"];
+  if (pagesRaw !== undefined) {
+    if (!Array.isArray(pagesRaw)) {
+      errors.push("customPalettePages must be an array");
+    } else {
+      customPalettePages = [];
+      for (let i = 0; i < pagesRaw.length; i++) {
+        const page = pagesRaw[i];
+        const path = `customPalettePages[${i}]`;
+        if (!isRecord(page)) {
+          errors.push(`${path} must be an object`);
+          continue;
+        }
+        if (typeof page.id !== "string" || !page.id.trim()) {
+          errors.push(`${path}.id must be a non-empty string`);
+          continue;
+        }
+        const name =
+          typeof page.name === "string" && page.name.trim()
+            ? page.name.trim()
+            : page.id;
+        const ids: string[] = [];
+        if (Array.isArray(page.customTypeIds)) {
+          for (const id of page.customTypeIds) {
+            if (typeof id === "string" && id.trim()) {
+              ids.push(id);
+            }
+          }
+        }
+        customPalettePages.push({ id: page.id, name, customTypeIds: ids });
+      }
+    }
+  }
+
+  if (errors.length > 0) {
+    return { ok: false, errors };
+  }
+
   const graph: PlanningGraph = normalizeGraph({
     schemaVersion: SCHEMA_VERSION,
     meta,
@@ -491,6 +530,7 @@ export function parseUnknownGraph(raw: unknown): ParseResult {
     edges,
     settings: settings ?? normalizeGraphSettings({ ...DEFAULT_GRAPH_SETTINGS }),
     customNodeTypes,
+    customPalettePages,
   });
 
   return validatePlanningGraph(graph);

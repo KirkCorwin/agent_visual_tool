@@ -1,4 +1,6 @@
 import { serializePlanningGraph } from "../graph/serialize";
+import type { EditorConfig } from "../graph/editorConfig";
+import { DEFAULT_EDITOR_CONFIG } from "../graph/editorConfig";
 import type { PlanningGraph } from "../graph/types";
 import {
   BOOTSTRAP_PROMPT_PATH,
@@ -11,7 +13,10 @@ import { renderPlanningIndex } from "./markdown/planningIndex";
 
 export const GRAPH_JSON_PATH = "graph.json";
 
-export function buildExportPackage(graph: PlanningGraph): Map<string, string> {
+export function buildExportPackage(
+  graph: PlanningGraph,
+  editorConfig: EditorConfig = DEFAULT_EDITOR_CONFIG,
+): Map<string, string> {
   const files = new Map<string, string>();
   const pathByNodeId = buildPathByNodeId(graph);
 
@@ -22,7 +27,7 @@ export function buildExportPackage(graph: PlanningGraph): Map<string, string> {
     } else {
       files.set(
         filePath,
-        renderNodeDocument(node, graph, filePath, pathByNodeId),
+        renderNodeDocument(node, graph, filePath, pathByNodeId, editorConfig),
       );
     }
   }
@@ -36,7 +41,7 @@ export function buildExportPackage(graph: PlanningGraph): Map<string, string> {
   const pathsBeforeBootstrap = [...files.keys()];
   files.set(
     BOOTSTRAP_PROMPT_PATH,
-    renderBootstrapPrompt(graph, pathByNodeId, pathsBeforeBootstrap),
+    renderBootstrapPrompt(graph, pathByNodeId, pathsBeforeBootstrap, editorConfig),
   );
 
   return files;

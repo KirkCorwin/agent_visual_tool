@@ -63,12 +63,16 @@ function GraphCanvasInner() {
     graph,
     syncCanvas,
     selectNode,
+    selectNodes,
     selectEdge,
     dispatch,
     defaultEdgeType,
     addNode,
     selection,
+    selectedNodeIds,
     deleteSelected,
+    copySelection,
+    pasteClipboard,
   } = useGraphStore();
   const { screenToFlowPosition } = useReactFlow();
   const canvasCaptureRef = useGraphCanvasCaptureRef();
@@ -115,8 +119,12 @@ function GraphCanvasInner() {
     );
   }, [graph.edges, graph.nodes, nodes, selection]);
 
+  const selectedNodeIdSet = useMemo(
+    () => new Set(selectedNodeIds),
+    [selectedNodeIds],
+  );
   const selectedNodeId =
-    selection?.kind === "node" ? selection.id : null;
+    selectedNodeIds.length === 1 ? selectedNodeIds[0] : null;
 
   const [draggingFocusId, setDraggingFocusId] = useState<string | null>(null);
 
@@ -145,7 +153,7 @@ function GraphCanvasInner() {
 
   const displayNodes = useMemo(() => {
     return nodes.map((node) => {
-      const isNodeSelected = node.id === selectedNodeId;
+      const isNodeSelected = selectedNodeIdSet.has(node.id);
       const isFocusParent = node.id === focusAncestorId;
       const isDescendantDimmed = dimmedDescendantIds.has(node.id);
 
@@ -169,7 +177,7 @@ function GraphCanvasInner() {
         },
       };
     });
-  }, [nodes, selectedNodeId, focusAncestorId, dimmedDescendantIds]);
+  }, [nodes, selectedNodeIdSet, focusAncestorId, dimmedDescendantIds]);
 
   useEffect(() => {
     setNodes((current) => mergeFlowNodesFromGraph(current, graph));
@@ -228,6 +236,41 @@ function GraphCanvasInner() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selection, deleteSelected, connectKeyHeld, connectSourceId]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isTypingTarget(event.target)) {
+        return;
+      }
+      if (connectKeyHeld || connectSourceId) {
+        return;
+      }
+      const mod = event.ctrlKey || event.metaKey;
+      if (!mod) {
+        return;
+      }
+      if (event.key === "c" || event.key === "C") {
+        if (selectedNodeIds.length === 0) {
+          return;
+        }
+        event.preventDefault();
+        copySelection();
+        return;
+      }
+      if (event.key === "v" || event.key === "V") {
+        event.preventDefault();
+        pasteClipboard();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [
+    connectKeyHeld,
+    connectSourceId,
+    selectedNodeIds.length,
+    copySelection,
+    pasteClipboard,
+  ]);
 
   const resolveConnectTarget = useCallback(
     (event: PointerEvent, source: string): string | null => {
@@ -421,19 +464,6 @@ function GraphCanvasInner() {
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
       for (const change of changes) {
-        if (change.type === "select" && change.selected) {
-          selectNode(change.id);
-          selectEdge(null);
-        }
-      }
-      if (
-        changes.some((c) => c.type === "select") &&
-        !changes.some((c) => c.type === "select" && c.selected)
-      ) {
-        selectNode(null);
-      }
-
-      for (const change of changes) {
         if (change.type === "remove") {
           dispatch({ type: "delete_node", id: change.id });
         }
@@ -442,9 +472,21 @@ function GraphCanvasInner() {
       if (changes.length === 0) {
         return;
       }
-      setNodes((current) => applyNodeChanges(changes, current) as Node[]);
+      setNodes((current) => {
+        const next = applyNodeChanges(changes, current) as Node[];
+        if (changes.some((c) => c.type === "select")) {
+          const ids = next.filter((n) => n.selected).map((n) => n.id);
+          if (ids.length > 0) {
+            selectNodes(ids);
+            selectEdge(null);
+          } else {
+            selectNodes([]);
+          }
+        }
+        return next;
+      });
     },
-    [dispatch, selectNode, selectEdge],
+    [dispatch, selectNodes, selectEdge],
   );
 
   const applyDragElevation = useCallback(
@@ -559,22 +601,13 @@ function GraphCanvasInner() {
         return;
       }
       event.stopPropagation();
+      setNodes((current) =>
+        current.map((n) => ({ ...n, selected: false })),
+      );
+      selectNodes([]);
       selectEdge(edge.id);
-      selectNode(null);
     },
-    [connectKeyHeld, connectSourceId, selectEdge, selectNode],
-  );
-
-  const onNodeClick = useCallback(
-    (event: React.MouseEvent, node: Node) => {
-      if (connectKeyHeld || connectSourceId) {
-        return;
-      }
-      event.stopPropagation();
-      selectNode(node.id);
-      selectEdge(null);
-    },
-    [connectKeyHeld, connectSourceId, selectNode, selectEdge],
+    [connectKeyHeld, connectSourceId, selectEdge, selectNodes],
   );
 
   const onPaneClick = useCallback(
@@ -592,11 +625,11 @@ function GraphCanvasInner() {
       ) {
         return;
       }
-      selectNode(null);
+      selectNodes([]);
       selectEdge(null);
       setDraggingFocusId(null);
     },
-    [connectKeyHeld, connectSourceId, selectNode, selectEdge],
+    [connectKeyHeld, connectSourceId, selectNodes, selectEdge],
   );
 
   return (
@@ -626,8 +659,8 @@ function GraphCanvasInner() {
           onNodeDragStart={onNodeDragStart}
           onNodeDrag={onNodeDrag}
           onNodeDragStop={onNodeDragStop}
-          onNodeClick={onNodeClick}
           onEdgeClick={onEdgeClick}
+          multiSelectionKeyCode="Shift"
           onPaneClick={onPaneClick}
           onEdgesDelete={onEdgesDelete}
           nodesConnectable={false}
@@ -649,7 +682,6 @@ function GraphCanvasInner() {
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           deleteKeyCode={["Backspace", "Delete"]}
-          multiSelectionKeyCode="Shift"
           proOptions={{ hideAttribution: true }}
         >
           <Background gap={16} />

@@ -9,6 +9,7 @@ import type {
   PlanningNode,
 } from "./types";
 import { DEFAULT_FOLDER_HEIGHT, DEFAULT_FOLDER_WIDTH } from "./folderBounds";
+import { normalizeCustomPalettePages } from "../lib/paletteLayout";
 import { DEFAULT_GRAPH_SETTINGS, normalizeGraphSettings } from "./nodeColors";
 import { SCHEMA_VERSION } from "./types";
 
@@ -34,6 +35,10 @@ export function createEmptyGraph(name = "Untitled project"): PlanningGraph {
     edges: [],
     settings: { ...DEFAULT_GRAPH_SETTINGS },
     customNodeTypes: [],
+    customPalettePages: normalizeCustomPalettePages({
+      customNodeTypes: [],
+      customPalettePages: undefined,
+    }),
   };
 }
 
@@ -41,13 +46,18 @@ export function normalizeGraph(graph: PlanningGraph): PlanningGraph {
   const rawSettings = graph.settings as
     | (GraphEditorSettings & { accessibleColors?: boolean })
     | undefined;
+  const customNodeTypes = graph.customNodeTypes ?? [];
   return {
     ...graph,
     settings: normalizeGraphSettings({
       ...DEFAULT_GRAPH_SETTINGS,
       ...rawSettings,
     }),
-    customNodeTypes: graph.customNodeTypes ?? [],
+    customNodeTypes,
+    customPalettePages: normalizeCustomPalettePages({
+      customNodeTypes,
+      customPalettePages: graph.customPalettePages,
+    }),
   };
 }
 

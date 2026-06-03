@@ -38,6 +38,7 @@ npm test
 | `web/src/export/` | Markdown, ZIP, bootstrap prompt |
 | `web/src/components/` | Canvas, palette, inspector, toolbar |
 | `docs/ARCHITECTURE.md` | Schema and export contract |
+| `docs/CANVAS_DESIGN.md` | Canvas stacking, editing, edge labels (agent spec) |
 | `docs/MILESTONES.md` | Delivery history |
 
 ## Features (V1)
