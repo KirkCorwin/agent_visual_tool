@@ -57,6 +57,8 @@ export type GraphEditorSettings = {
   accessibleColorMode: AccessibleColorMode;
   /** When true, edge paths attach to the label box and move when the description is dragged. */
   edgeFollowsLabel: boolean;
+  /** When true, edge chips show a single capitalized letter instead of the full relation label. */
+  minimalEdgeLabels: boolean;
 };
 
 export type PlanningNode = {

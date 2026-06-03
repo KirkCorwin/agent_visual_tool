@@ -430,7 +430,7 @@
 }
 
 .graph-canvas .react-flow__edgelabel-renderer {
-  z-index: 20;
+  /* No fixed z-index — each label uses edge zIndex + 1 so it stacks with nodes/edges. */
   pointer-events: none;
 }
 
@@ -458,6 +458,30 @@
 .edge-label--selected {
   border-color: #e8eaed;
   box-shadow: 0 0 0 1px rgba(232, 234, 237, 0.45);
+}
+
+.edge-label--minimal {
+  min-width: 0;
+  max-width: none;
+  width: max-content;
+  padding: 0.2rem 0.25rem;
+}
+
+.edge-label--minimal .edge-label__toolbar {
+  gap: 0.15rem;
+}
+
+.edge-label--minimal .edge-label__type-btn {
+  flex: 0 0 auto;
+  min-width: 1.1rem;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.1rem 0.2rem;
+}
+
+.edge-label--minimal .edge-label__type-text {
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .graph-canvas .react-flow__edge.selected .react-flow__edge-path {

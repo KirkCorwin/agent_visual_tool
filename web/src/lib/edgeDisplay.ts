@@ -29,3 +29,15 @@ export function getEdgeCanvasSummary(edge: PlanningEdge): string {
   }
   return getEdgeTitleLabel(edge);
 }
+
+/** Single-letter chip when minimal edge labels are enabled. */
+export function getEdgeMinimalLetter(edge: PlanningEdge): string {
+  if (isCustomEdge(edge)) {
+    const text = edge.data?.label?.trim();
+    if (text) {
+      return text.charAt(0).toUpperCase();
+    }
+    return "C";
+  }
+  return formatEdgeType(edge.type).charAt(0).toUpperCase();
+}

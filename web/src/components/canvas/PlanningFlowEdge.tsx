@@ -133,7 +133,7 @@ export function PlanningFlowEdge({
 
             transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
 
-            zIndex: isSelected ? edgeZ + 2 : edgeZ + 1,
+            zIndex: edgeZ + 1,
 
           }}
 

@@ -70,6 +70,7 @@ describe("nodeColors", () => {
         deleteChildrenOnNodeDelete: false,
         accessibleColors: true,
         edgeFollowsLabel: false,
+        minimalEdgeLabels: false,
       }).accessibleColorMode,
     ).toBe(1);
   });

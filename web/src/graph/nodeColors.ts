@@ -143,6 +143,7 @@ export const DEFAULT_GRAPH_SETTINGS: GraphEditorSettings = {
   deleteChildrenOnNodeDelete: false,
   accessibleColorMode: 0,
   edgeFollowsLabel: false,
+  minimalEdgeLabels: false,
 };
 
 export function parseAccessibleColorMode(
@@ -249,5 +250,6 @@ export function normalizeGraphSettings(
       settings.deleteChildrenOnNodeDelete === true,
     accessibleColorMode: mode,
     edgeFollowsLabel: settings.edgeFollowsLabel === true,
+    minimalEdgeLabels: settings.minimalEdgeLabels === true,
   };
 }

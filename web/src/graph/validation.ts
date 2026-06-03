@@ -437,6 +437,7 @@ export function parseUnknownGraph(raw: unknown): ParseResult {
               : undefined,
           accessibleColors: settingsRaw.accessibleColors === true,
           edgeFollowsLabel: settingsRaw.edgeFollowsLabel === true,
+          minimalEdgeLabels: settingsRaw.minimalEdgeLabels === true,
         })
       : undefined;
 

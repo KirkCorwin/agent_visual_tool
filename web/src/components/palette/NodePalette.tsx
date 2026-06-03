@@ -339,6 +339,14 @@ export function NodePalette() {
             setGraphSettings({ edgeFollowsLabel })
           }
         />
+        <SettingsToggle
+          id="palette-minimal-edge-labels"
+          label="Minimal edge labels"
+          checked={settings.minimalEdgeLabels}
+          onChange={(minimalEdgeLabels) =>
+            setGraphSettings({ minimalEdgeLabels })
+          }
+        />
       </footer>
     </aside>
   );

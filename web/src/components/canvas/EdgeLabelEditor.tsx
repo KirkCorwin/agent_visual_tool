@@ -10,6 +10,10 @@ import {
 
   formatEdgeType,
 
+  getEdgeCanvasSummary,
+
+  getEdgeMinimalLetter,
+
   isCustomEdge,
 
 } from "../../lib/edgeDisplay";
@@ -240,7 +244,15 @@ export function EdgeLabelEditor({
 
   const custom = isCustomEdge(edge);
 
+  const minimalLabels = graph.settings?.minimalEdgeLabels === true;
+
   const labelDrag = edge.data?.labelDrag;
+
+  const typeButtonLabel = minimalLabels
+    ? getEdgeMinimalLetter(edge)
+    : custom
+      ? "custom"
+      : formatEdgeType(edge.type);
 
 
 
@@ -341,7 +353,7 @@ export function EdgeLabelEditor({
 
       ref={rootRef}
 
-      className={`edge-label${isSelected ? " edge-label--selected" : ""}${dragging ? " edge-label--dragging" : ""}`}
+      className={`edge-label${isSelected ? " edge-label--selected" : ""}${dragging ? " edge-label--dragging" : ""}${minimalLabels ? " edge-label--minimal" : ""}`}
 
       style={style}
 
@@ -383,6 +395,8 @@ export function EdgeLabelEditor({
 
           className="edge-label__type-btn"
 
+          title={minimalLabels ? getEdgeCanvasSummary(edge) : undefined}
+
           onClick={(event) => {
 
             event.stopPropagation();
@@ -395,7 +409,7 @@ export function EdgeLabelEditor({
 
         >
 
-          <span>{custom ? "custom" : formatEdgeType(edge.type)}</span>
+          <span className="edge-label__type-text">{typeButtonLabel}</span>
 
           <span className="edge-label__caret" aria-hidden>
 
@@ -485,7 +499,7 @@ export function EdgeLabelEditor({
 
 
 
-      {custom ? (
+      {custom && !minimalLabels ? (
 
         <div className="edge-label__custom-block">
 
