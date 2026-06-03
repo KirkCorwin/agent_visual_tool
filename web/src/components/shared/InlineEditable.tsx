@@ -34,7 +34,7 @@ type InlineEditableProps = {
   value: string;
   onCommit: (value: string) => void;
   className?: string;
-  as?: "span" | "strong";
+  as?: "span" | "strong" | "h1";
   placeholder?: string;
   /** When false, single click selects (via onSelect) instead of opening the editor. */
   editOnClick?: boolean;

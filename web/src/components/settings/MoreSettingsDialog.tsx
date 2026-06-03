@@ -15,7 +15,6 @@ import {
   MAX_CUSTOM_EDGE_PRESETS,
   slotConfigMenuValue,
 } from "../../lib/customEdgePresets";
-import type { EdgeType } from "../../graph/types";
 import type { CustomEdgePreset } from "../../graph/editorConfig";
 import {
   EdgeRelationSelectOptions,

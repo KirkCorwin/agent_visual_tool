@@ -125,7 +125,7 @@ export function getPageTypeCount(
 /** First open page (in order 1..4) with room under global cap; else palette-1. */
 export function firstOpenPageForAdd(
   openPageIds: Set<string>,
-  pages: CustomPalettePage[],
+  _pages: CustomPalettePage[],
   atCap: boolean,
 ): PalettePageId {
   if (atCap) {

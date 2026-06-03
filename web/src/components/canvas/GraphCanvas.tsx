@@ -466,7 +466,7 @@ function GraphCanvasInner() {
   );
 
   const onNodeDragStart = useCallback(
-    (_event: React.MouseEvent, node: Node) => {
+    (_event: MouseEvent | TouchEvent, node: Node) => {
       if (connectKeyHeld || connectSourceId) {
         return;
       }
@@ -502,7 +502,7 @@ function GraphCanvasInner() {
   );
 
   const onNodeDrag = useCallback(
-    (_event: React.MouseEvent, node: Node) => {
+    (_event: MouseEvent | TouchEvent, node: Node) => {
       if (connectKeyHeld || connectSourceId) {
         return;
       }

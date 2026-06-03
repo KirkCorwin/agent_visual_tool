@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEmptyGraph, createNode } from "../graph/defaults";
+import { createNode } from "../graph/defaults";
 import { createTestGraphStoreState, graphReducer } from "./graphStore";
 
 const baseState = () => createTestGraphStoreState();
@@ -50,6 +50,8 @@ describe("delete_node", () => {
         settings: {
           deleteChildrenOnNodeDelete: true,
           accessibleColorMode: 0,
+          edgeFollowsLabel: false,
+          minimalEdgeLabels: false,
         },
         nodes: [parent, child],
         edges: [],

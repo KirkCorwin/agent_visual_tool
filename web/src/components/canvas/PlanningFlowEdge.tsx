@@ -60,7 +60,6 @@ export function PlanningFlowEdge({
 
   const labelOffsetPx = edgeData?.labelOffsetPx ?? 0;
 
-  const bundleIndex = edgeData?.bundleIndex ?? 0;
   const edgeZ = edgeData?.edgeZIndex ?? 0;
 
   const labelDrag = graphEdge?.data?.labelDrag ?? edgeData?.labelDrag;

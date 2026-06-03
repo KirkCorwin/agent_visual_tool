@@ -29,17 +29,7 @@ import {
 
 import type { EdgeType, PlanningEdge, PlanningGraph, PlanningNode } from "./types";
 
-import {
-
-  getFolderSize,
-
-  getPlanningNodeSize,
-
-  PLANNING_NODE_HEIGHT,
-
-  PLANNING_NODE_WIDTH,
-
-} from "./folderBounds";
+import { getFolderSize, getPlanningNodeSize } from "./folderBounds";
 
 
 

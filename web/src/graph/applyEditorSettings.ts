@@ -1,4 +1,3 @@
-import { normalizeCustomPalettePages } from "../lib/paletteLayout";
 import { MAX_CUSTOM_PALETTE_TYPES } from "../lib/customPaletteLimits";
 import { DEFAULT_CUSTOM_NODE_PROMPT } from "./defaultPrompts";
 import type { EditorConfig, EditorSettingsBundle } from "./editorConfig";

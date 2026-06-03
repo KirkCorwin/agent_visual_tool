@@ -1,4 +1,8 @@
-import { DEFAULT_GRAPH_SETTINGS, normalizeGraphSettings } from "./nodeColors";
+import {
+  DEFAULT_GRAPH_SETTINGS,
+  normalizeGraphSettings,
+  parseAccessibleColorMode,
+} from "./nodeColors";
 import {
   EDGE_TYPES,
   NODE_TYPES,
@@ -433,7 +437,10 @@ export function parseUnknownGraph(raw: unknown): ParseResult {
             settingsRaw.deleteChildrenOnNodeDelete === true,
           accessibleColorMode:
             typeof settingsRaw.accessibleColorMode === "number"
-              ? settingsRaw.accessibleColorMode
+              ? parseAccessibleColorMode(
+                  settingsRaw.accessibleColorMode,
+                  settingsRaw.accessibleColors === true,
+                )
               : undefined,
           accessibleColors: settingsRaw.accessibleColors === true,
           edgeFollowsLabel: settingsRaw.edgeFollowsLabel === true,

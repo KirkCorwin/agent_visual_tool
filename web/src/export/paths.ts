@@ -2,7 +2,7 @@ import type { NodeType, PlanningGraph, PlanningNode } from "../graph/types";
 import { folderExportSlug } from "../graph/folderBounds";
 
 const PLANNING_NODE_DIRS: Record<
-  Exclude<NodeType, "task" | "agent" | "folder">,
+  Exclude<NodeType, "task" | "agent" | "folder" | "custom">,
   string
 > = {
   project: "planning/project",
@@ -22,6 +22,9 @@ function basePathForType(nodeType: NodeType, nodeId: string): string {
   }
   if (nodeType === "folder") {
     return `folders/${nodeId}/README.md`;
+  }
+  if (nodeType === "custom") {
+    return `planning/custom/${nodeId}.md`;
   }
   return `${PLANNING_NODE_DIRS[nodeType]}/${nodeId}.md`;
 }

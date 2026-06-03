@@ -47,6 +47,7 @@ export function nodeTypeHeading(type: NodeType): string {
     decision: "Decision",
     constraint: "Constraint",
     folder: "Folder",
+    custom: "Custom",
   };
   return labels[type];
 }
