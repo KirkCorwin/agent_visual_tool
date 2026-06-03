@@ -16,8 +16,8 @@ export default function App() {
         <header className="app__header">
           <div className="app__header-row">
             <div className="app__brand">
-              <p className="app__product">Agent Visual Tool</p>
               <ProjectNameHeader />
+              <p className="app__product">Agent Visual Tool</p>
               <p className="app__tagline">
                 Offline planning graph for bootstrapping agentic workspaces
               </p>

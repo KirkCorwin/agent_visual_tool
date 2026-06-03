@@ -63,7 +63,7 @@
 }
 
 .app__product {
-  margin: 0 0 0.2rem;
+  margin: 0.15rem 0 0.2rem;
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -75,12 +75,28 @@
   margin-bottom: 0.2rem;
 }
 
+.project-name__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.5rem;
+}
+
+.project-name__label {
+  flex-shrink: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #9aa0a6;
+}
+
 .project-name__title {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 600;
   line-height: 1.25;
   color: #e8eaed;
+  min-width: 0;
 }
 
 .project-name__title.inline-editable {
@@ -325,9 +341,14 @@
   cursor: pointer;
 }
 
-.palette__add-type:hover {
+.palette__add-type:hover:not(:disabled) {
   background: #252932;
   border-color: #4f8cff;
+}
+
+.palette__add-type:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .palette__settings {

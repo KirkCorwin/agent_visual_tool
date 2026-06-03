@@ -33,7 +33,7 @@ export function NodeCornerResizer({
   onSizing,
   onSizeCommit,
 }: NodeCornerResizerProps) {
-  const { getNode, screenToFlowPosition } = useReactFlow();
+  const { getNode, setNodes, screenToFlowPosition } = useReactFlow();
   const updateNodeInternals = useUpdateNodeInternals();
   const [resizing, setResizing] = useState(false);
   const sessionRef = useRef<{ pointerId: number } | null>(null);
@@ -47,7 +47,30 @@ export function NodeCornerResizer({
       return;
     }
     onSizing(pending.width, pending.height);
-  }, [onSizing]);
+    setNodes((nodes) =>
+      nodes.map((n) => {
+        if (n.id !== nodeId) {
+          return n;
+        }
+        return {
+          ...n,
+          width: pending.width,
+          height: pending.height,
+          style: {
+            ...n.style,
+            width: pending.width,
+            height: pending.height,
+          },
+          data: {
+            ...n.data,
+            width: pending.width,
+            height: pending.height,
+          },
+        };
+      }),
+    );
+    updateNodeInternals(nodeId);
+  }, [nodeId, onSizing, setNodes, updateNodeInternals]);
 
   const scheduleSizing = useCallback(
     (nextWidth: number, nextHeight: number) => {

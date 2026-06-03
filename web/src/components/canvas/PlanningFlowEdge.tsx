@@ -61,6 +61,7 @@ export function PlanningFlowEdge({
   const labelOffsetPx = edgeData?.labelOffsetPx ?? 0;
 
   const bundleIndex = edgeData?.bundleIndex ?? 0;
+  const edgeZ = edgeData?.edgeZIndex ?? 0;
 
   const labelDrag = graphEdge?.data?.labelDrag ?? edgeData?.labelDrag;
 
@@ -132,7 +133,7 @@ export function PlanningFlowEdge({
 
             transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
 
-            zIndex: isSelected ? 1250 : 1100 + bundleIndex,
+            zIndex: isSelected ? edgeZ + 2 : edgeZ + 1,
 
           }}
 

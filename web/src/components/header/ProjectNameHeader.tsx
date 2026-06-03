@@ -9,13 +9,16 @@ export function ProjectNameHeader() {
 
   return (
     <div className="project-name">
-      <InlineEditable
-        as="h1"
-        className="project-name__title"
-        value={graph.meta.name}
-        placeholder="Untitled project"
-        onCommit={updateGraphName}
-      />
+      <div className="project-name__row">
+        <span className="project-name__label">Project Title:</span>
+        <InlineEditable
+          as="h1"
+          className="project-name__title"
+          value={graph.meta.name}
+          placeholder="Untitled project"
+          onCommit={updateGraphName}
+        />
+      </div>
       <p className="project-name__exports">
         Saves as{" "}
         <code>{graphFileName(graph)}</code>

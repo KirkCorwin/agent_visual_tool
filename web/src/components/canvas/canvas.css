@@ -84,26 +84,24 @@
   height: 100%;
 }
 
-/* React Flow adds .dragging while a node moves — keep it above siblings for stacking. */
-.graph-canvas .react-flow__node.dragging {
-  z-index: 1500 !important;
+/* RF wrapper tracks explicit width/height (updated live during corner resize). */
+.graph-canvas .react-flow__node {
+  box-sizing: border-box;
 }
 
 /* Selection ring on RF wrapper (outside node border; not clipped by overflow:hidden). */
 .graph-canvas .react-flow__node.avt-node--selected {
-  z-index: 12 !important;
   outline: 2px solid rgba(196, 200, 210, 0.92);
   outline-offset: 4px;
   border-radius: 10px;
 }
 
-/* Keep type-colored border; only lift opacity / depth when selected. */
+/* Selection: outline on RF wrapper only — do not change node fill opacity. */
 .graph-canvas .react-flow__node.avt-node--selected .planning-node,
 .graph-canvas .react-flow__node.avt-node--selected .folder-node,
 .planning-node--selected,
 .folder-node--selected {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.42) !important;
-  opacity: 1 !important;
 }
 
 /* Invisible hit targets above nodes; edge labels stay above hits. */
@@ -134,6 +132,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
 }
 
 .planning-node__header {
@@ -141,11 +140,13 @@
 }
 
 .planning-node__body {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
+  width: 100%;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 0.1rem;
 }
 
@@ -190,16 +191,32 @@
 
 .planning-node__desc-block .inline-editable-editor--multiline {
   flex: none;
-  width: 100%;
-  max-height: 3.25em;
-  overflow: hidden;
+  width: auto;
+  max-width: 100%;
+  border-radius: 4px;
+}
+
+.planning-node--focus-parent .planning-node__desc-block .inline-editable-editor--multiline {
+  position: relative;
+  z-index: 20;
 }
 
 .planning-node__desc-block .inline-edit-textarea.planning-node__desc {
-  min-height: 2.7em;
-  max-height: 3.25em;
-  padding-right: 0.65rem;
+  min-height: 1.35em;
+  max-width: 100%;
+  padding: 0.15rem 0.65rem 0.35rem 0.2rem;
   box-sizing: border-box;
+  overflow: hidden;
+  resize: none;
+  field-sizing: content;
+  border: 2px solid rgba(196, 200, 210, 0.92);
+  border-radius: 4px;
+  background: rgba(22, 25, 34, 0.96);
+}
+
+.planning-node__desc-block .inline-edit-textarea.planning-node__desc:focus {
+  outline: none;
+  border: 2px solid rgba(210, 214, 224, 0.98);
 }
 
 .planning-node--connect-target {
@@ -210,15 +227,33 @@
   box-shadow: 0 0 0 2px #f5a623;
 }
 
-/* Containers with stacked children — edges behind remain visible */
+/* Containers with nested nodes — stay translucent so edges behind remain visible */
 .planning-node--has-nested,
 .folder-node--has-nested {
-  opacity: 0.8;
+  opacity: 0.92;
 }
 
-.planning-node--has-nested.planning-node--selected,
-.folder-node--has-nested.folder-node--selected {
-  opacity: 1;
+.graph-canvas .react-flow__node.avt-node--descendant-dim .planning-node,
+.graph-canvas .react-flow__node.avt-node--descendant-dim .folder-node,
+.planning-node--descendant-dim,
+.folder-node--descendant-dim {
+  opacity: 0.9;
+  transition: opacity 0.12s ease;
+}
+
+/* Fixed overlay for inline editors / type menu above nested child nodes */
+.floating-canvas-field {
+  box-sizing: border-box;
+}
+
+.floating-canvas-field .inline-editable-editor--overlay {
+  width: 100%;
+}
+
+.floating-canvas-field .inline-edit-textarea,
+.floating-canvas-field .inline-edit-input {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .planning-node__folder {
@@ -637,6 +672,29 @@
   height: 0.5rem;
   border-radius: 2px;
   flex-shrink: 0;
+}
+
+.node-type-menu__divider {
+  height: 1px;
+  margin: 0.2rem 0.35rem;
+  background: #3d4454;
+  list-style: none;
+}
+
+.graph-canvas .react-flow__controls-button {
+  color: #5a5f6b;
+}
+
+.graph-canvas .react-flow__controls-button svg {
+  fill: #5a5f6b;
+}
+
+.graph-canvas .react-flow__controls-button:hover {
+  color: #2d3340;
+}
+
+.graph-canvas .react-flow__controls-button:hover svg {
+  fill: #2d3340;
 }
 
 .inline-editable {

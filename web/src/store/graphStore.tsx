@@ -37,6 +37,7 @@ import type {
   PlanningGraph,
 } from "../graph/types";
 import { nextCustomPinkColor } from "../graph/nodeColors";
+import { MAX_CUSTOM_PALETTE_TYPES } from "../lib/customPaletteLimits";
 import { applyCanvasState } from "../graph/reactFlowAdapter";
 import { parsePlanningGraphJson, serializePlanningGraph } from "../graph/serialize";
 import { validatePlanningGraph } from "../graph/validation";
@@ -74,7 +75,7 @@ type GraphAction =
   | { type: "remove_custom_palette_type"; id: string }
   | { type: "update_custom_palette_type"; id: string; label: string }
   | { type: "update_node"; id: string; data: Partial<NodeData> }
-  | { type: "set_node_type"; id: string; nodeType: NodeType }
+  | { type: "set_node_type"; id: string; nodeType: NodeType; customTypeId?: string }
   | {
       type: "update_node_layout";
       id: string;
@@ -163,6 +164,9 @@ export function graphReducer(
 
     case "add_custom_palette_type": {
       const existing = state.graph.customNodeTypes ?? [];
+      if (existing.length >= MAX_CUSTOM_PALETTE_TYPES) {
+        return state;
+      }
       const entry: CustomPaletteType = {
         id: newId(),
         label: `Custom ${existing.length + 1}`,
@@ -246,7 +250,7 @@ export function graphReducer(
 
     case "set_node_type": {
       const nodes = state.graph.nodes.map((node) => {
-        if (node.id !== action.id || node.type === action.nodeType) {
+        if (node.id !== action.id) {
           return node;
         }
         if (node.type === "folder" || action.nodeType === "folder") {
@@ -256,8 +260,36 @@ export function graphReducer(
         if (action.nodeType !== "agent") {
           delete data.role;
         }
-        if (action.nodeType !== "custom") {
+        if (action.nodeType === "custom") {
+          const customTypeId =
+            action.customTypeId ??
+            data.customTypeId ??
+            state.graph.customNodeTypes?.[0]?.id;
+          if (!customTypeId) {
+            return node;
+          }
+          data.customTypeId = customTypeId;
+          const custom = state.graph.customNodeTypes?.find(
+            (t) => t.id === customTypeId,
+          );
+          if (!data.title?.trim() || node.type !== "custom") {
+            data.title = custom?.label ?? data.title ?? "Custom";
+          }
+        } else {
           delete data.customTypeId;
+        }
+        if (
+          node.type === action.nodeType &&
+          action.nodeType !== "custom"
+        ) {
+          return node;
+        }
+        if (
+          node.type === "custom" &&
+          action.nodeType === "custom" &&
+          data.customTypeId === node.data.customTypeId
+        ) {
+          return node;
         }
         return { ...node, type: action.nodeType, data };
       });
@@ -435,7 +467,7 @@ type GraphStoreValue = {
   removeCustomPaletteType: (id: string) => void;
   updateCustomPaletteType: (id: string, label: string) => void;
   updateNodeData: (id: string, data: Partial<NodeData>) => void;
-  setNodeType: (id: string, nodeType: NodeType) => void;
+  setNodeType: (id: string, nodeType: NodeType, customTypeId?: string) => void;
   deleteSelected: () => void;
   setDefaultEdgeType: (edgeType: EdgeType) => void;
   selectNode: (id: string | null) => void;
@@ -524,9 +556,12 @@ export function GraphStoreProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "update_node", id, data });
   }, []);
 
-  const setNodeType = useCallback((id: string, nodeType: NodeType) => {
-    dispatch({ type: "set_node_type", id, nodeType });
-  }, []);
+  const setNodeType = useCallback(
+    (id: string, nodeType: NodeType, customTypeId?: string) => {
+      dispatch({ type: "set_node_type", id, nodeType, customTypeId });
+    },
+    [],
+  );
 
   const deleteSelected = useCallback(() => {
     if (state.selection?.kind === "node") {

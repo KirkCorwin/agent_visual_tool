@@ -11,6 +11,7 @@ import {
   type PlanningNode,
 } from "./types";
 import { normalizeGraph } from "./defaults";
+import { MAX_CUSTOM_PALETTE_TYPES } from "../lib/customPaletteLimits";
 
 const EDGE_TYPE_SET = new Set<string>(EDGE_TYPES);
 const NODE_TYPE_SET = new Set<string>(NODE_TYPES);
@@ -469,6 +470,11 @@ export function parseUnknownGraph(raw: unknown): ParseResult {
           label: entry.label,
           color: entry.color,
         });
+      }
+      if (customNodeTypes.length > MAX_CUSTOM_PALETTE_TYPES) {
+        errors.push(
+          `customNodeTypes must have at most ${MAX_CUSTOM_PALETTE_TYPES} entries`,
+        );
       }
     }
   }

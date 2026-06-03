@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createNode } from "./defaults";
+import { createEdge } from "./defaults";
 import {
+  computeEdgeZIndexes,
   computeStackZIndexes,
+  enforceAncestorDescendantZOrder,
   elevateSubtreeAboveRest,
   elevateSubtreeBand,
 } from "./nodeZIndex";
@@ -34,6 +37,17 @@ describe("computeStackZIndexes", () => {
     expect(band.get(parent.id)).toBe(1500);
   });
 
+  it("respects current canvas z when lifting above other nodes", () => {
+    const a = createNode("project");
+    const b = createNode("feature");
+    const canvasZ = new Map([
+      [a.id, 10],
+      [b.id, 2000],
+    ]);
+    const lifted = elevateSubtreeAboveRest([a, b], new Set([a.id]), canvasZ);
+    expect(lifted.get(a.id)!).toBeGreaterThan(2000);
+  });
+
   it("lifts a nested group above nodes outside the group", () => {
     const under = createNode("project");
     const parent = createNode("feature", { parentId: under.id });
@@ -50,6 +64,70 @@ describe("computeStackZIndexes", () => {
     );
     expect(lifted.get(parent.id)!).toBeGreaterThan(outsideZ);
     expect(lifted.get(child.id)!).toBeGreaterThan(lifted.get(parent.id)!);
+  });
+
+  it("enforceAncestorDescendantZOrder fixes inverted parent/child z", () => {
+    const parent = createNode("feature", {
+      data: { width: 400, height: 300 },
+    });
+    const child = createNode("task", {
+      parentId: parent.id,
+      data: { width: 120, height: 80 },
+    });
+    const broken = new Map([
+      [parent.id, 500],
+      [child.id, 10],
+    ]);
+    const fixed = enforceAncestorDescendantZOrder([parent, child], broken);
+    expect(fixed.get(child.id)!).toBeGreaterThan(fixed.get(parent.id)!);
+  });
+
+  it("keeps child above parent after elevate when canvas z was inverted", () => {
+    const parent = createNode("feature", {
+      data: { width: 400, height: 300 },
+    });
+    const child = createNode("task", { parentId: parent.id });
+    const canvasZ = new Map([
+      [parent.id, 2000],
+      [child.id, 5],
+    ]);
+    const lifted = elevateSubtreeAboveRest(
+      [parent, child],
+      new Set([parent.id, child.id]),
+      canvasZ,
+    );
+    expect(lifted.get(child.id)!).toBeGreaterThan(lifted.get(parent.id)!);
+  });
+
+  it("places edges above parent z when connecting nested children", () => {
+    const parent = createNode("feature");
+    const childA = createNode("task", { parentId: parent.id });
+    const childB = createNode("task", { parentId: parent.id });
+    const nodes = [parent, childA, childB];
+    const z = enforceAncestorDescendantZOrder(
+      nodes,
+      computeStackZIndexes(nodes),
+    );
+    const edge = createEdge("depends_on", childA.id, childB.id);
+    const edgeZ = computeEdgeZIndexes([edge], z, nodes);
+    expect(edgeZ.get(edge.id)!).toBeGreaterThan(z.get(parent.id)!);
+    expect(edgeZ.get(edge.id)!).toBeGreaterThan(z.get(childA.id)!);
+  });
+
+  it("uses max endpoint z for child-to-outside links", () => {
+    const parent = createNode("feature");
+    const child = createNode("task", { parentId: parent.id });
+    const outside = createNode("component");
+    const nodes = [parent, child, outside];
+    const z = enforceAncestorDescendantZOrder(
+      nodes,
+      computeStackZIndexes(nodes),
+    );
+    const edge = createEdge("depends_on", child.id, outside.id);
+    const edgeZ = computeEdgeZIndexes([edge], z, nodes);
+    const expected = Math.max(z.get(child.id)!, z.get(outside.id)!) + 1;
+    expect(edgeZ.get(edge.id)).toBe(expected);
+    expect(edgeZ.get(edge.id)!).toBeGreaterThan(z.get(parent.id)!);
   });
 
   it("allows a folder on a card but below other siblings on that card", () => {

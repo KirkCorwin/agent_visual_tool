@@ -84,6 +84,8 @@ export function PlanningFlowNode({ data, selected, id, width, height }: NodeProp
   const isConnectSource = sourceId === id;
 
   const hasNested = nodeHasNestedChildren(graph.nodes, id);
+  const isFocusParent = nodeData.isFocusParent === true;
+  const isDescendantDimmed = nodeData.isDescendantDimmed === true;
 
   const parentNode = nodeData.parentId
     ? graph.nodes.find((n) => n.id === nodeData.parentId)
@@ -106,7 +108,7 @@ export function PlanningFlowNode({ data, selected, id, width, height }: NodeProp
 
     <div
 
-      className={`planning-node${showSelected ? " planning-node--selected" : ""}${isConnectTarget ? " planning-node--connect-target" : ""}${isConnectSource ? " planning-node--connect-source" : ""}${hasNested ? " planning-node--has-nested" : ""}${liveSize ? " planning-node--resizing" : ""}`}
+      className={`planning-node${showSelected ? " planning-node--selected" : ""}${isConnectTarget ? " planning-node--connect-target" : ""}${isConnectSource ? " planning-node--connect-source" : ""}${hasNested ? " planning-node--has-nested" : ""}${isFocusParent ? " planning-node--focus-parent" : ""}${isDescendantDimmed ? " planning-node--descendant-dim" : ""}${liveSize ? " planning-node--resizing" : ""}`}
 
       style={{
         width: w,
@@ -171,6 +173,7 @@ export function PlanningFlowNode({ data, selected, id, width, height }: NodeProp
         <NodeTypeMenu
           nodeId={id}
           currentType={nodeData.planningType}
+          currentCustomTypeId={nodeData.customTypeId}
           typeLabel={typeLabel}
           borderColor={color}
           className="planning-node__type-menu"
@@ -204,6 +207,7 @@ export function PlanningFlowNode({ data, selected, id, width, height }: NodeProp
           editOnClick
           clickToEditDelay={0}
           multiline
+          enterCommits
           onSelect={() => {
             selectNode(id);
             selectEdge(null);

@@ -56,6 +56,8 @@ export function FolderFlowNode({ data, selected, id, width, height }: NodeProps)
   const isConnectSource = sourceId === id;
 
   const hasNested = nodeHasNestedChildren(graph.nodes, id);
+  const isFocusParent = nodeData.isFocusParent === true;
+  const isDescendantDimmed = nodeData.isDescendantDimmed === true;
 
   const baseW = (typeof width === "number" ? width : undefined) ?? nodeData.width;
   const baseH =
@@ -67,7 +69,7 @@ export function FolderFlowNode({ data, selected, id, width, height }: NodeProps)
 
     <div
 
-      className={`folder-node${showSelected ? " folder-node--selected" : ""}${isConnectTarget ? " folder-node--connect-target" : ""}${isConnectSource ? " folder-node--connect-source" : ""}${hasNested ? " folder-node--has-nested" : ""}${liveSize ? " folder-node--resizing" : ""}`}
+      className={`folder-node${showSelected ? " folder-node--selected" : ""}${isConnectTarget ? " folder-node--connect-target" : ""}${isConnectSource ? " folder-node--connect-source" : ""}${hasNested ? " folder-node--has-nested" : ""}${isFocusParent ? " folder-node--focus-parent" : ""}${isDescendantDimmed ? " folder-node--descendant-dim" : ""}${liveSize ? " folder-node--resizing" : ""}`}
 
       style={{
         width: w,

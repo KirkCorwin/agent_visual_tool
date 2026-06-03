@@ -5,12 +5,14 @@ import type { NodeType } from "../../graph/types";
 import { useGraphStore } from "../../store/graphStore";
 import {
   NODE_TYPE_LABELS,
+  resolveCustomDisplayColor,
   resolveNodeTypeColors,
 } from "../canvas/nodeStyles";
 
 type NodeTypeMenuProps = {
   nodeId: string;
   currentType: Exclude<NodeType, "folder">;
+  currentCustomTypeId?: string;
   typeLabel?: string;
   borderColor?: string;
   className?: string;
@@ -19,6 +21,7 @@ type NodeTypeMenuProps = {
 export function NodeTypeMenu({
   nodeId,
   currentType,
+  currentCustomTypeId,
   typeLabel,
   borderColor,
   className = "",
@@ -33,8 +36,15 @@ export function NodeTypeMenu({
     minWidth: number;
   } | null>(null);
   const colors = resolveNodeTypeColors(graph.settings);
+  const customTypes = graph.customNodeTypes ?? [];
   const color = borderColor ?? colors[currentType];
   const label = typeLabel ?? NODE_TYPE_LABELS[currentType];
+
+  const isActiveBuiltin = (nodeType: Exclude<NodeType, "folder" | "custom">) =>
+    currentType === nodeType;
+
+  const isActiveCustom = (customTypeId: string) =>
+    currentType === "custom" && currentCustomTypeId === customTypeId;
 
   useLayoutEffect(() => {
     if (!open || !buttonRef.current) {
@@ -87,7 +97,7 @@ export function NodeTypeMenu({
           <button
             type="button"
             role="option"
-            className={`node-type-menu__item${nodeType === currentType ? " node-type-menu__item--active" : ""}`}
+            className={`node-type-menu__item${isActiveBuiltin(nodeType) ? " node-type-menu__item--active" : ""}`}
             onClick={() => {
               setNodeType(nodeId, nodeType);
               setOpen(false);
@@ -98,6 +108,30 @@ export function NodeTypeMenu({
               style={{ background: colors[nodeType] }}
             />
             {NODE_TYPE_LABELS[nodeType]}
+          </button>
+        </li>
+      ))}
+      {customTypes.length > 0 ? (
+        <li className="node-type-menu__divider" role="separator" />
+      ) : null}
+      {customTypes.map((entry) => (
+        <li key={entry.id}>
+          <button
+            type="button"
+            role="option"
+            className={`node-type-menu__item${isActiveCustom(entry.id) ? " node-type-menu__item--active" : ""}`}
+            onClick={() => {
+              setNodeType(nodeId, "custom", entry.id);
+              setOpen(false);
+            }}
+          >
+            <span
+              className="node-type-menu__swatch"
+              style={{
+                background: resolveCustomDisplayColor(graph, entry.id),
+              }}
+            />
+            {entry.label}
           </button>
         </li>
       ))}

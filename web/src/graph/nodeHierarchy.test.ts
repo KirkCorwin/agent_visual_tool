@@ -4,6 +4,7 @@ import {
   assignParentsFromPositions,
   findStackParent,
   getDescendantIds,
+  resolveNestedFocusDisplayZ,
   wouldCreateParentCycle,
 } from "./nodeHierarchy";
 
@@ -70,6 +71,43 @@ describe("nodeHierarchy", () => {
     );
     expect(updated.find((n) => n.id === dragged.id)?.parentId).toBe(target.id);
     expect(updated.find((n) => n.id === target.id)?.parentId).toBeUndefined();
+  });
+
+  it("keeps descendants above parent when nested parent is selected", () => {
+    const parent = createNode("feature", {
+      data: { width: 400, height: 300 },
+    });
+    const child = createNode("task", { parentId: parent.id });
+    const nodes = [parent, child];
+    const canvasZ = new Map([
+      [parent.id, 900],
+      [child.id, 5],
+    ]);
+    const resolved = resolveNestedFocusDisplayZ(
+      nodes,
+      parent.id,
+      canvasZ,
+      "selection",
+    );
+    expect(resolved.get(child.id)!).toBeGreaterThan(resolved.get(parent.id)!);
+    expect(resolved.get(parent.id)).toBeLessThan(900);
+  });
+
+  it("keeps parent below descendants during drag elevation", () => {
+    const parent = createNode("feature");
+    const child = createNode("task", { parentId: parent.id });
+    const nodes = [parent, child];
+    const canvasZ = new Map([
+      [parent.id, 2000],
+      [child.id, 2010],
+    ]);
+    const resolved = resolveNestedFocusDisplayZ(
+      nodes,
+      parent.id,
+      canvasZ,
+      "drag",
+    );
+    expect(resolved.get(parent.id)!).toBeLessThan(resolved.get(child.id)!);
   });
 
   it("detects parent cycles", () => {

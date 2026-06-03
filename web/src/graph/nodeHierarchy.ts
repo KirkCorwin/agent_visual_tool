@@ -1,5 +1,10 @@
 import { getFolderRect, getPlanningNodeSize } from "./folderBounds";
-import { computeStackZIndexes } from "./nodeZIndex";
+import {
+  computeStackZIndexes,
+  enforceAncestorDescendantZOrder,
+} from "./nodeZIndex";
+
+const NESTED_Z_GAP = 1;
 import type { PlanningGraph, PlanningNode } from "./types";
 
 export type NodeRect = {
@@ -152,13 +157,30 @@ export function assignParentsFromPositions(
   /** When set, only these nodes get a new parentId (e.g. after drag). Others are unchanged. */
   onlyNodeIds?: Set<string>,
 ): PlanningNode[] {
-  const stackZ = zById ?? computeStackZIndexes(graph.nodes);
+  const stackZ = enforceAncestorDescendantZOrder(
+    graph.nodes,
+    zById ?? computeStackZIndexes(graph.nodes),
+  );
   const nodesById = new Map(graph.nodes.map((n) => [n.id, n]));
   return graph.nodes.map((node) => {
     if (onlyNodeIds && !onlyNodeIds.has(node.id)) {
       return node;
     }
     const center = getNodeCenter(node);
+    if (node.parentId) {
+      const previousParent = nodesById.get(node.parentId);
+      if (
+        previousParent &&
+        !wouldCreateParentCycle(graph.nodes, node.id, node.parentId) &&
+        pointInNodeRect(center, previousParent)
+      ) {
+        const folderId = resolveFolderIdForNode(
+          { ...node, parentId: node.parentId },
+          nodesById,
+        );
+        return { ...node, parentId: node.parentId, folderId };
+      }
+    }
     const parent = findStackParent(center, graph.nodes, node.id, stackZ);
     const parentId = parent?.id;
     const folderId = parentId
@@ -166,4 +188,52 @@ export function assignParentsFromPositions(
       : undefined;
     return { ...node, parentId, folderId };
   });
+}
+
+/**
+ * While a nested parent is focused, keep descendants above the parent in z-order.
+ * Selection uses structural z only; drag keeps outside elevation but parent still below children.
+ */
+export function resolveNestedFocusDisplayZ(
+  nodes: PlanningNode[],
+  focusAncestorId: string,
+  canvasZById: Map<string, number>,
+  mode: "selection" | "drag",
+): Map<string, number> {
+  const structural = enforceAncestorDescendantZOrder(
+    nodes,
+    computeStackZIndexes(nodes),
+  );
+  const descendantIds = getDescendantIds(nodes, focusAncestorId);
+  const parentStructural = structural.get(focusAncestorId) ?? 0;
+
+  if (mode === "selection") {
+    const out = new Map(canvasZById);
+    out.set(focusAncestorId, parentStructural);
+    for (const descId of descendantIds) {
+      out.set(
+        descId,
+        Math.max(structural.get(descId) ?? 0, parentStructural + NESTED_Z_GAP),
+      );
+    }
+    return out;
+  }
+
+  const out = new Map(canvasZById);
+  let maxDescendantZ = parentStructural;
+  for (const descId of descendantIds) {
+    const z = Math.max(
+      out.get(descId) ?? 0,
+      structural.get(descId) ?? 0,
+      parentStructural + NESTED_Z_GAP,
+    );
+    out.set(descId, z);
+    maxDescendantZ = Math.max(maxDescendantZ, z);
+  }
+  const parentZ = Math.min(
+    out.get(focusAncestorId) ?? parentStructural,
+    maxDescendantZ - NESTED_Z_GAP,
+  );
+  out.set(focusAncestorId, parentZ);
+  return out;
 }

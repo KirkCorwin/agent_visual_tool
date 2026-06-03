@@ -16,6 +16,7 @@ import {
   toggleAccessibleColorMode,
 } from "../canvas/nodeStyles";
 import type { CustomPaletteType } from "../../graph/types";
+import { MAX_CUSTOM_PALETTE_TYPES } from "../../lib/customPaletteLimits";
 
 const BUILTIN_PALETTE_TYPES = [...PALETTE_BUILTIN_TYPES, "folder"] as const;
 
@@ -264,6 +265,7 @@ export function NodePalette() {
   const colors = resolveNodeTypeColors(graph.settings);
   const settings = graph.settings!;
   const customTypes = graph.customNodeTypes ?? [];
+  const atCustomLimit = customTypes.length >= MAX_CUSTOM_PALETTE_TYPES;
 
   return (
     <aside className="palette">
@@ -296,8 +298,13 @@ export function NodePalette() {
         <button
           type="button"
           className="palette__add-type"
-          title="Add custom node type"
+          title={
+            atCustomLimit
+              ? `Maximum ${MAX_CUSTOM_PALETTE_TYPES} custom types`
+              : "Add custom node type"
+          }
           aria-label="Add custom node type"
+          disabled={atCustomLimit}
           onClick={() => addCustomPaletteType()}
         >
           +

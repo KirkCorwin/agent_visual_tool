@@ -57,14 +57,32 @@ export function SelectionInspector() {
             <label className="field">
               <span className="field__label">Object type</span>
               <select
-                value={selectedNode.type}
-                onChange={(e) =>
-                  setNodeType(selectedNode.id, e.target.value as NodeType)
+                value={
+                  selectedNode.type === "custom" && selectedNode.data.customTypeId
+                    ? `custom:${selectedNode.data.customTypeId}`
+                    : selectedNode.type
                 }
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value.startsWith("custom:")) {
+                    setNodeType(
+                      selectedNode.id,
+                      "custom",
+                      value.slice("custom:".length),
+                    );
+                    return;
+                  }
+                  setNodeType(selectedNode.id, value as NodeType);
+                }}
               >
-                {PLANNING_NODE_TYPES.map((t) => (
+                {PLANNING_NODE_TYPES.filter((t) => t !== "custom").map((t) => (
                   <option key={t} value={t}>
                     {NODE_TYPE_LABELS[t]}
+                  </option>
+                ))}
+                {(graph.customNodeTypes ?? []).map((entry) => (
+                  <option key={entry.id} value={`custom:${entry.id}`}>
+                    {entry.label}
                   </option>
                 ))}
               </select>

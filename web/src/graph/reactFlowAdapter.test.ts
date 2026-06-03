@@ -5,6 +5,7 @@ import {
   flowNodeToPlanning,
   mergeFlowNodesFromGraph,
   toFlowNode,
+  toFlowNodes,
 } from "./reactFlowAdapter";
 
 describe("reactFlowAdapter", () => {
@@ -39,6 +40,29 @@ describe("reactFlowAdapter", () => {
     expect(merged[0]?.height).toBe(160);
     expect(merged[0]?.data.width).toBe(320);
     expect(merged[0]?.data.height).toBe(160);
+  });
+
+  it("merge keeps child z above parent after stale inverted canvas z", () => {
+    const parent = createNode("feature", {
+      data: { width: 400, height: 300 },
+    });
+    const child = createNode("task", {
+      parentId: parent.id,
+      position: { x: 30, y: 30 },
+    });
+    const graph = createEmptyGraph();
+    graph.nodes.push(parent, child);
+
+    const flow = toFlowNodes(graph);
+    const stale = flow.map((n) => ({
+      ...n,
+      zIndex: n.id === parent.id ? 900 : 1,
+    }));
+
+    const merged = mergeFlowNodesFromGraph(stale, graph);
+    const parentZ = merged.find((n) => n.id === parent.id)?.zIndex ?? 0;
+    const childZ = merged.find((n) => n.id === child.id)?.zIndex ?? 0;
+    expect(childZ).toBeGreaterThan(parentZ);
   });
 
   it("assigns parentId when node center is inside folder", () => {

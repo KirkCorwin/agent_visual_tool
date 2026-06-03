@@ -21,7 +21,11 @@ import {
 import { isImplicitEdge } from "./implicitEdges";
 
 import { assignParentsFromPositions } from "./nodeHierarchy";
-import { computeStackZIndexes } from "./nodeZIndex";
+import {
+  computeEdgeZIndexes,
+  computeStackZIndexes,
+  enforceAncestorDescendantZOrder,
+} from "./nodeZIndex";
 
 import type { EdgeType, PlanningEdge, PlanningGraph, PlanningNode } from "./types";
 
@@ -69,6 +73,10 @@ export type PlanningNodeFlowData = {
 
   isCanvasSelected?: boolean;
 
+  isFocusParent?: boolean;
+
+  isDescendantDimmed?: boolean;
+
 };
 
 
@@ -91,6 +99,10 @@ export type FolderFlowData = {
 
   isCanvasSelected?: boolean;
 
+  isFocusParent?: boolean;
+
+  isDescendantDimmed?: boolean;
+
 };
 
 
@@ -110,6 +122,8 @@ export type PlanningEdgeFlowData = {
   labelOffsetPx?: number;
 
   bundleIndex?: number;
+
+  edgeZIndex?: number;
 
 };
 
@@ -227,7 +241,10 @@ export function toFolderFlowNode(
 
 export function toFlowNodes(graph: PlanningGraph): Node[] {
 
-  const zById = computeStackZIndexes(graph.nodes);
+  const zById = enforceAncestorDescendantZOrder(
+    graph.nodes,
+    computeStackZIndexes(graph.nodes),
+  );
 
   const folders = graph.nodes.filter((n) => n.type === "folder");
 
@@ -237,7 +254,7 @@ export function toFlowNodes(graph: PlanningGraph): Node[] {
 
     ...folders.map((n) => toFolderFlowNode(n, zById.get(n.id) ?? 0)),
 
-    ...rest.map((n) => toFlowNode(n, zById.get(n.id) ?? 50)),
+    ...rest.map((n) => toFlowNode(n, zById.get(n.id) ?? 0)),
 
   ];
 
@@ -249,13 +266,19 @@ export function toFlowEdge(
 
   edge: PlanningEdge,
 
-  options?: { selected?: boolean; bundle?: EdgeBundleLayout },
+  options?: {
+    selected?: boolean;
+    bundle?: EdgeBundleLayout;
+    zIndex?: number;
+  },
 
 ): Edge<PlanningEdgeFlowData> {
 
   const selected = options?.selected === true;
 
   const bundle = options?.bundle;
+
+  const zIndex = options?.zIndex ?? 0;
 
   return {
 
@@ -266,6 +289,8 @@ export function toFlowEdge(
     source: edge.source,
 
     target: edge.target,
+
+    zIndex,
 
     label: getEdgeCanvasSummary(edge),
 
@@ -305,6 +330,8 @@ export function toFlowEdge(
 
       bundleIndex: bundle?.bundleIndex,
 
+      edgeZIndex: zIndex,
+
     },
 
   };
@@ -319,11 +346,29 @@ export function toFlowEdges(
 
   selectedEdgeId?: string | null,
 
+  nodes: PlanningNode[] = [],
+
+  nodeZById?: Map<string, number>,
+
 ): Edge<PlanningEdgeFlowData>[] {
 
   const visible = edges.filter((edge) => !isImplicitEdge(edge));
 
   const layouts = computeEdgeBundleLayouts(visible);
+
+  const zById =
+    nodeZById ??
+    (nodes.length > 0
+      ? enforceAncestorDescendantZOrder(
+          nodes,
+          computeStackZIndexes(nodes),
+        )
+      : new Map<string, number>());
+
+  const edgeZById =
+    nodes.length > 0
+      ? computeEdgeZIndexes(visible, zById, nodes)
+      : new Map<string, number>();
 
   return visible.map((edge) =>
 
@@ -332,6 +377,8 @@ export function toFlowEdges(
       selected: edge.id === selectedEdgeId,
 
       bundle: layouts.get(edge.id),
+
+      zIndex: edgeZById.get(edge.id) ?? 0,
 
     }),
 
@@ -355,7 +402,7 @@ export function mergeFlowNodesFromGraph(
 
   const currentById = new Map(current.map((node) => [node.id, node]));
 
-  return next.map((node) => {
+  const merged = next.map((node) => {
 
     const existing = currentById.get(node.id);
 
@@ -411,6 +458,20 @@ export function mergeFlowNodesFromGraph(
 
     };
 
+  });
+
+  const hierarchyZ = enforceAncestorDescendantZOrder(
+    graph.nodes,
+    new Map(merged.map((n) => [n.id, n.zIndex ?? 0] as const)),
+  );
+
+  return merged.map((node) => {
+    const existing = currentById.get(node.id);
+    const baseZ = hierarchyZ.get(node.id) ?? node.zIndex ?? 0;
+    const zIndex = existing?.dragging
+      ? Math.max(existing.zIndex ?? 0, baseZ)
+      : baseZ;
+    return { ...node, zIndex };
   });
 
 }

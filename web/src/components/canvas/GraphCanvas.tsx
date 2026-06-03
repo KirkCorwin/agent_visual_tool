@@ -16,11 +16,11 @@ import "@xyflow/react/dist/style.css";
 import { useGraphCanvasCaptureRef } from "../../context/GraphCanvasCaptureContext";
 import { useGraphStore } from "../../store/graphStore";
 import { NODE_CARD_CENTER_OFFSET } from "../../graph/folderBounds";
-import { getDescendantIds } from "../../graph/nodeHierarchy";
 import {
-  elevateSubtreeAboveRest,
-  elevateSubtreeBand,
-} from "../../graph/nodeZIndex";
+  getDescendantIds,
+  nodeHasNestedChildren,
+} from "../../graph/nodeHierarchy";
+import { elevateSubtreeAboveRest } from "../../graph/nodeZIndex";
 import {
   FOLDER_NODE_TYPE,
   PLANNING_EDGE_TYPE,
@@ -58,9 +58,6 @@ const edgeTypes = {
   [PLANNING_EDGE_TYPE]: PlanningFlowEdge,
 };
 
-/** Above edges (1100+) and default nodes while dragging for stack placement. */
-const NODE_DRAG_Z_INDEX = 1500;
-
 function GraphCanvasInner() {
   const {
     graph,
@@ -90,8 +87,6 @@ function GraphCanvasInner() {
   const dragSnapshotRef = useRef<Map<string, { x: number; y: number }>>(
     new Map(),
   );
-  /** Subtree last dragged — keeps group z-order until the next drag. */
-  const elevatedGroupRef = useRef<Set<string> | null>(null);
   connectSourceRef.current = connectSourceId;
   connectHoverRef.current = connectHoverId;
 
@@ -108,48 +103,76 @@ function GraphCanvasInner() {
   nodesRef.current = nodes;
   const graphRevision = graph.meta.updatedAt;
 
-  const flowEdges = useMemo(
-    () =>
-      toFlowEdges(
-        graph.edges,
-        selection?.kind === "edge" ? selection.id : null,
-      ),
-    [graph.edges, selection],
-  );
+  const flowEdges = useMemo(() => {
+    const nodeZById = new Map(
+      nodes.map((n) => [n.id, n.zIndex ?? 0] as const),
+    );
+    return toFlowEdges(
+      graph.edges,
+      selection?.kind === "edge" ? selection.id : null,
+      graph.nodes,
+      nodeZById,
+    );
+  }, [graph.edges, graph.nodes, nodes, selection]);
 
   const selectedNodeId =
     selection?.kind === "node" ? selection.id : null;
 
-  const displayNodes = useMemo(
-    () =>
-      nodes.map((node) => {
-        const isNodeSelected = node.id === selectedNodeId;
-        return {
-          ...node,
-          selected: isNodeSelected,
-          className: isNodeSelected ? "avt-node--selected" : undefined,
-          data: {
-            ...node.data,
-            isCanvasSelected: isNodeSelected,
-          },
-        };
-      }),
-    [nodes, selectedNodeId],
-  );
+  const [draggingFocusId, setDraggingFocusId] = useState<string | null>(null);
+
+  const focusAncestorId = useMemo(() => {
+    if (
+      draggingFocusId &&
+      nodeHasNestedChildren(graph.nodes, draggingFocusId)
+    ) {
+      return draggingFocusId;
+    }
+    if (
+      selectedNodeId &&
+      nodeHasNestedChildren(graph.nodes, selectedNodeId)
+    ) {
+      return selectedNodeId;
+    }
+    return null;
+  }, [draggingFocusId, selectedNodeId, graph.nodes]);
+
+  const dimmedDescendantIds = useMemo(() => {
+    if (!focusAncestorId) {
+      return new Set<string>();
+    }
+    return new Set(getDescendantIds(graph.nodes, focusAncestorId));
+  }, [focusAncestorId, graph.nodes]);
+
+  const displayNodes = useMemo(() => {
+    return nodes.map((node) => {
+      const isNodeSelected = node.id === selectedNodeId;
+      const isFocusParent = node.id === focusAncestorId;
+      const isDescendantDimmed = dimmedDescendantIds.has(node.id);
+
+      const classNames = [
+        isNodeSelected ? "avt-node--selected" : "",
+        isFocusParent ? "avt-node--focus-parent" : "",
+        isDescendantDimmed ? "avt-node--descendant-dim" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      return {
+        ...node,
+        selected: isNodeSelected,
+        className: classNames || undefined,
+        data: {
+          ...node.data,
+          isCanvasSelected: isNodeSelected,
+          isFocusParent,
+          isDescendantDimmed,
+        },
+      };
+    });
+  }, [nodes, selectedNodeId, focusAncestorId, dimmedDescendantIds]);
 
   useEffect(() => {
-    setNodes((current) => {
-      let next = mergeFlowNodesFromGraph(current, graph);
-      const group = elevatedGroupRef.current;
-      if (group?.size) {
-        const zMap = elevateSubtreeAboveRest(graph.nodes, group);
-        next = next.map((n) => ({
-          ...n,
-          zIndex: zMap.get(n.id) ?? n.zIndex,
-        }));
-      }
-      return next;
-    });
+    setNodes((current) => mergeFlowNodesFromGraph(current, graph));
     // graphRevision bumps on store commits; graph read from this render.
   }, [graphRevision, graph]);
 
@@ -424,6 +447,19 @@ function GraphCanvasInner() {
     [dispatch, selectNode, selectEdge],
   );
 
+  const applyDragElevation = useCallback(
+    (current: Node[], idSet: Set<string>) => {
+      const canvasZ = new Map(
+        current.map((n) => [n.id, n.zIndex ?? 0] as const),
+      );
+      const dragZ = elevateSubtreeAboveRest(graph.nodes, idSet, canvasZ);
+      return current.map((n) =>
+        idSet.has(n.id) ? { ...n, zIndex: dragZ.get(n.id) ?? n.zIndex } : n,
+      );
+    },
+    [graph.nodes],
+  );
+
   const onNodeDragStart = useCallback(
     (_event: React.MouseEvent, node: Node) => {
       if (connectKeyHeld || connectSourceId) {
@@ -432,7 +468,6 @@ function GraphCanvasInner() {
       selectNode(node.id);
       selectEdge(null);
       const ids = [node.id, ...getDescendantIds(graph.nodes, node.id)];
-      const idSet = new Set(ids);
       const snap = new Map<string, { x: number; y: number }>();
       for (const id of ids) {
         const n = nodes.find((nd) => nd.id === id);
@@ -441,17 +476,24 @@ function GraphCanvasInner() {
         }
       }
       dragSnapshotRef.current = snap;
-      elevatedGroupRef.current = idSet;
-      const dragZ = elevateSubtreeBand(graph.nodes, idSet, NODE_DRAG_Z_INDEX);
-      setNodes((current) =>
-        current.map((n) =>
-          idSet.has(n.id)
-            ? { ...n, zIndex: dragZ.get(n.id) ?? NODE_DRAG_Z_INDEX }
-            : n,
-        ),
+      setDraggingFocusId(
+        nodeHasNestedChildren(graph.nodes, node.id) ? node.id : null,
       );
+      // Only lift leaf/single nodes above others — never reshuffle z when dragging a container.
+      if (!nodeHasNestedChildren(graph.nodes, node.id)) {
+        const idSet = new Set(ids);
+        setNodes((current) => applyDragElevation(current, idSet));
+      }
     },
-    [graph.nodes, nodes, connectKeyHeld, connectSourceId, selectNode, selectEdge],
+    [
+      graph.nodes,
+      nodes,
+      connectKeyHeld,
+      connectSourceId,
+      selectNode,
+      selectEdge,
+      applyDragElevation,
+    ],
   );
 
   const onNodeDrag = useCallback(
@@ -466,11 +508,13 @@ function GraphCanvasInner() {
       }
       const dx = node.position.x - origin.x;
       const dy = node.position.y - origin.y;
-      if (dx === 0 && dy === 0) {
-        return;
-      }
-      setNodes((current) =>
-        current.map((n) => {
+      const dragRootHasChildren = nodeHasNestedChildren(graph.nodes, node.id);
+      const idSet = new Set([
+        node.id,
+        ...getDescendantIds(graph.nodes, node.id),
+      ]);
+      setNodes((current) => {
+        let next = current.map((n) => {
           const start = snap.get(n.id);
           if (!start) {
             return n;
@@ -479,16 +523,20 @@ function GraphCanvasInner() {
             ...n,
             position: { x: start.x + dx, y: start.y + dy },
           };
-        }),
-      );
+        });
+        if (!dragRootHasChildren) {
+          next = applyDragElevation(next, idSet);
+        }
+        return next;
+      });
     },
-    [connectKeyHeld, connectSourceId],
+    [connectKeyHeld, connectSourceId, applyDragElevation, graph.nodes],
   );
 
   const onNodeDragStop = useCallback(() => {
     const reassigned = [...dragSnapshotRef.current.keys()];
-    elevatedGroupRef.current = new Set(reassigned);
     dragSnapshotRef.current = new Map();
+    setDraggingFocusId(null);
     queueMicrotask(() => syncCanvas(nodesRef.current, reassigned));
   }, [syncCanvas]);
 
@@ -546,6 +594,7 @@ function GraphCanvasInner() {
       }
       selectNode(null);
       selectEdge(null);
+      setDraggingFocusId(null);
     },
     [connectKeyHeld, connectSourceId, selectNode, selectEdge],
   );
@@ -570,6 +619,9 @@ function GraphCanvasInner() {
         <ReactFlow
           nodes={displayNodes}
           edges={flowEdges}
+          zIndexMode="manual"
+          elevateNodesOnSelect={false}
+          elevateEdgesOnSelect={false}
           onNodesChange={onNodesChange}
           onNodeDragStart={onNodeDragStart}
           onNodeDrag={onNodeDrag}
