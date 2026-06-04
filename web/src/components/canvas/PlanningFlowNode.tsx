@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { type NodeProps, useReactFlow } from "@xyflow/react";
+import { type NodeProps, useReactFlow, useUpdateNodeInternals } from "@xyflow/react";
 
 import type { PlanningNodeFlowData } from "../../graph/reactFlowAdapter";
 
@@ -76,6 +76,11 @@ export function PlanningFlowNode({ data, selected, id, width, height }: NodeProp
   } = useConnectDraft();
 
   const { getNode } = useReactFlow();
+  const updateNodeInternals = useUpdateNodeInternals();
+
+  useEffect(() => {
+    updateNodeInternals(id);
+  }, [id, nodeData.description, updateNodeInternals]);
 
   const isConnectTarget =
 
@@ -113,7 +118,6 @@ export function PlanningFlowNode({ data, selected, id, width, height }: NodeProp
       style={{
         width: w,
         height: h,
-        position: "relative",
         ["--node-accent" as string]: color,
       }}
 
@@ -199,9 +203,9 @@ export function PlanningFlowNode({ data, selected, id, width, height }: NodeProp
         </span>
       ) : null}
 
-      <div className="planning-node__desc-block nodrag nopan">
+      <div className="planning-node__desc-block">
         <InlineEditable
-          className="planning-node__desc nodrag nopan"
+          className="planning-node__desc"
           placeholder="description"
           value={nodeData.description ?? ""}
           editOnClick={false}

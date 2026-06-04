@@ -119,6 +119,7 @@
 }
 
 .planning-node {
+  position: relative;
   box-sizing: border-box;
   min-width: 160px;
   min-height: 72px;
@@ -132,7 +133,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   opacity: 0.9;
   transition: opacity 0.12s ease;
 }
@@ -142,35 +143,37 @@
 }
 
 .planning-node__body {
-  flex: 0 0 auto;
+  flex: 1 1 0;
   width: 100%;
   min-height: 0;
-  overflow: visible;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 0.1rem;
 }
 
 .planning-node__desc-block {
-  flex-shrink: 0;
-  align-self: flex-start;
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
   max-width: 100%;
   margin-top: 0.15rem;
 }
 
 .planning-node__desc-block .inline-editable.planning-node__desc,
 .planning-node__desc-block .inline-editable-editor--multiline {
-  display: inline-block;
-  width: fit-content;
+  display: block;
+  width: 100%;
   max-width: 100%;
   vertical-align: top;
 }
 
 .planning-node__desc-block .inline-editable.planning-node__desc {
-  padding-right: 0.65rem;
+  padding-right: 1.1rem;
   padding-bottom: 0.35rem;
-  box-sizing: content-box;
+  box-sizing: border-box;
 }
 
 .planning-node__title {
@@ -183,6 +186,7 @@
 .planning-node__desc {
   display: block;
   flex: none;
+  width: 100%;
   margin: 0;
   max-width: 100%;
   min-height: 1.35em;
@@ -292,6 +296,8 @@
 
 .node-resize-grip {
   position: absolute;
+  top: auto;
+  left: auto;
   right: 0;
   bottom: 0;
   z-index: 40;
