@@ -8,6 +8,7 @@ import {
   DEFAULT_EDGE_CURVATURE,
 } from "../../lib/edgeBundleLayout";
 import { resolveEdgePath } from "../../lib/edgePath";
+import { EDGE_HIT_OVERLAY_Z_INDEX } from "../../lib/overlayZIndex";
 import { useGraphStore } from "../../store/graphStore";
 
 const EDGE_HIT_WIDTH = 28;
@@ -113,6 +114,7 @@ export function EdgeHitOverlay({ disabled = false }: EdgeHitOverlayProps) {
           width: "100%",
           height: "100%",
           pointerEvents: "none",
+          zIndex: EDGE_HIT_OVERLAY_Z_INDEX,
         }}
       >
         {hitPaths.map(({ id, d }) => (

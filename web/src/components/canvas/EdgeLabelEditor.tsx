@@ -49,7 +49,7 @@ export function EdgeLabelEditor({
   const edge = graph.edges.find((e) => e.id === edgeId);
 
   const rootRef = useRef<HTMLDivElement>(null);
-  const typeBtnRef = useRef<HTMLButtonElement>(null);
+  const menuBtnRef = useRef<HTMLButtonElement>(null);
   const customInputRef = useRef<HTMLInputElement>(null);
   const dragRef = useRef<DragSession | null>(null);
 
@@ -214,13 +214,15 @@ export function EdgeLabelEditor({
     event.stopPropagation();
   };
 
-  const onRootPointerDownCapture = (event: React.PointerEvent) => {
-    const target = event.target as HTMLElement;
-    if (target.closest(".edge-label__drag-handle")) {
-      return;
-    }
-    event.stopPropagation();
-  };
+  const toggleTypeMenu = useCallback(
+    (event: React.SyntheticEvent) => {
+      event.stopPropagation();
+      selectThisEdge();
+      setCustomTextEditing(false);
+      setMenuOpen((open) => !open);
+    },
+    [selectThisEdge],
+  );
 
   const rootClassName = [
     "edge-label",
@@ -240,7 +242,7 @@ export function EdgeLabelEditor({
       ref={rootRef}
       className={rootClassName}
       style={style}
-      onPointerDownCapture={onRootPointerDownCapture}
+      onPointerDown={stopCanvas}
       onClick={stopCanvas}
     >
       <div className="edge-label__toolbar">
@@ -280,26 +282,39 @@ export function EdgeLabelEditor({
             onClick={stopCanvas}
           />
         ) : (
-          <button
-            ref={typeBtnRef}
-            type="button"
-            className="edge-label__type-btn"
-            title={minimalLabels ? getEdgeCanvasSummary(edge) : undefined}
-            aria-expanded={menuOpen}
-            aria-haspopup="listbox"
-            onPointerDown={stopCanvas}
-            onClick={(event) => {
-              event.stopPropagation();
-              selectThisEdge();
-              setCustomTextEditing(false);
-              setMenuOpen((open) => !open);
-            }}
-          >
-            <span className="edge-label__type-text">{typeButtonLabel}</span>
-            <span className="edge-label__caret" aria-hidden>
-              ▾
+          <div className="edge-label__type-row">
+            <span
+              className="edge-label__type-label"
+              title={minimalLabels ? getEdgeCanvasSummary(edge) : undefined}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+                selectThisEdge();
+              }}
+            >
+              {typeButtonLabel}
             </span>
-          </button>
+            <button
+              ref={menuBtnRef}
+              type="button"
+              className={`edge-label__menu-btn${menuOpen ? " edge-label__menu-btn--open" : ""}`}
+              title="Change relation"
+              aria-label="Change edge relation"
+              aria-expanded={menuOpen}
+              aria-haspopup="listbox"
+              onPointerDown={(event) => {
+                if (event.button !== 0) {
+                  return;
+                }
+                toggleTypeMenu(event);
+              }}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+            >
+              ▾
+            </button>
+          </div>
         )}
 
         {custom && !customTextEditing ? (
@@ -336,7 +351,7 @@ export function EdgeLabelEditor({
 
       <DropdownMenuPortal
         open={menuOpen}
-        anchorRef={typeBtnRef}
+        anchorRef={menuBtnRef}
         menuClassName="edge-label__menu"
         portalClassName="edge-label__menu--portal"
         minWidth={160}

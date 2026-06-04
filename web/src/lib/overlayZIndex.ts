@@ -1,3 +1,12 @@
+/**
+ * Invisible edge stroke hit targets (below label chips).
+ * Was 12 in CSS — that blocked clicks on labels with edgeZ + 1 under 12.
+ */
+export const EDGE_HIT_OVERLAY_Z_INDEX = 0;
+
+/** Edge label chips render in this layer (above hit overlay, per-label z still applies). */
+export const EDGE_LABEL_RENDERER_Z_INDEX = 1;
+
 /** Temporary canvas dropdown menus — always above graph nodes and edges. */
 export const CANVAS_DROPDOWN_Z_INDEX = 3000;
 

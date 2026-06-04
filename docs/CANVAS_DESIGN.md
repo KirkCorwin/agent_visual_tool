@@ -15,7 +15,7 @@ This document is the **canonical UX + stacking spec** for the React Flow plannin
 | Canvas shell | `web/src/components/canvas/GraphCanvas.tsx` |
 | Node UI | `PlanningFlowNode.tsx`, `FolderFlowNode.tsx`, `canvas.css` |
 | Edge UI | `PlanningFlowEdge.tsx`, `EdgeLabelEditor.tsx`, `EdgeHitOverlay.tsx` |
-| Dropdown overlays | `DropdownMenuPortal.tsx`, `overlayZIndex.ts` |
+| Dropdown overlays | `DropdownMenuPortal.tsx`, `useFixedAnchorRect.ts`, `overlayZIndex.ts` |
 | Inline text | `web/src/components/shared/InlineEditable.tsx` |
 | Settings | `web/src/graph/types.ts` (`GraphEditorSettings`), `NodePalette.tsx` |
 
@@ -57,7 +57,7 @@ Implemented in `computeEdgeZIndexes`:
 
 **Labels:** `PlanningFlowEdge` sets label `zIndex = edgeZ + 1` (still below endpoint nodes when gap is 2).
 
-**Hit targets:** `EdgeHitOverlay` uses a separate portal (`z-index: 12` in CSS); do not pin `.react-flow__edgelabel-renderer` to a fixed z (per-label z must interleave with nodes).
+**Hit targets:** `EdgeHitOverlay` sits at `EDGE_HIT_OVERLAY_Z_INDEX` (0). `.react-flow__edgelabel-renderer` is at layer 1; each label uses `edgeZ + 1` to interleave with nodes. Do not raise hit overlay above label chips — it blocks the relation menu when a curve passes behind the label. The ▾ menu button is portaled to `document.body` at z-index 3000 as a fallback.
 
 ### Known gaps (current behavior vs intent)
 
@@ -133,10 +133,10 @@ Add/extend tests in `nodeZIndex.test.ts` for:
 | `edgeFollowsLabel` | `false` | Path reroutes through label when dragged |
 | `minimalEdgeLabels` | `false` | Chip shows one capitalized letter; narrow toolbar |
 
-### Minimal mode (current issues)
+### Minimal mode
 
-- Type dropdown button is **~1.1rem** wide — hard to hit.
-- **Intended:** minimum **28×28px** hit target (or full toolbar height clickable for menu); keep drag handle separate; `title` shows full relation on hover.
+- Relation **text/letter** is display-only (selects the edge); **▾ menu button** opens the type dropdown (~half toolbar height, same in minimal and full mode).
+- `title` on the label shows full relation on hover when minimal letters are used.
 
 ### Label z
 
@@ -147,21 +147,26 @@ Add/extend tests in `nodeZIndex.test.ts` for:
 
 Canvas dropdowns are **short-lived** UI (node type picker, edge relation picker, etc.). They must **always paint above** all graph nodes and edges, regardless of per-node `zIndex`.
 
+**Edge-label ▾ button:** stays **inline** on the label chip (inside `.react-flow__edgelabel-renderer`). It moves with pan, zoom, and label drag. Do **not** portal the ▾ to `document.body` — fixed screen positioning drifts when React Flow updates the viewport transform without a window scroll event.
+
 | Rule | Detail |
 |------|--------|
-| Portal | Render with `DropdownMenuPortal` → `createPortal(..., document.body)` |
-| Position | `position: fixed`, anchored to trigger via `getBoundingClientRect()` |
+| Portal (menus only) | Render list with `DropdownMenuPortal` → `createPortal(..., document.body)` |
+| Position | `position: fixed`; anchor rect from `useFixedAnchorRect` (subscribes to `useStore(transform)`, scroll, resize, `ResizeObserver`) |
 | Z-index | `CANVAS_DROPDOWN_Z_INDEX` (**3000**) from `web/src/lib/overlayZIndex.ts` |
 | Marker | Portaled menu root gets `data-canvas-dropdown` for outside-click dismissal |
-| Do **not** | Rely on `z-index` inside `.react-flow__edgelabel-renderer` or node stacking contexts — those follow graph z-order and will interleave incorrectly with high-z nodes |
+| Hit overlay | `EDGE_HIT_OVERLAY_Z_INDEX` (**0**) — keep below `.react-flow__edgelabel-renderer` (**1**); do not raise hit overlay above labels |
+| Do **not** | Rely on `z-index` inside `.react-flow__edgelabel-renderer` for **dropdown lists** — those follow graph z-order and will interleave incorrectly with high-z nodes |
 
 **Stack bands (low → high):**
 
-1. Graph nodes / edges / label chips — manual `zIndex` (typically 0–~2000)
-2. Canvas dropdowns + floating inline edit — **3000** (`CANVAS_DROPDOWN_Z_INDEX`)
-3. Modal dialogs (More settings) — **4000** (`MODAL_Z_INDEX`)
+1. Edge hit overlay — **0** (`EDGE_HIT_OVERLAY_Z_INDEX`)
+2. Edge label renderer layer — **1** (`EDGE_LABEL_RENDERER_Z_INDEX`; per-label `zIndex` still applies within)
+3. Graph nodes / edges — manual `zIndex` (typically 0–~2000)
+4. Canvas dropdowns + floating inline edit — **3000** (`CANVAS_DROPDOWN_Z_INDEX`)
+5. Modal dialogs (More settings) — **4000** (`MODAL_Z_INDEX`)
 
-**Implementation:** `web/src/components/shared/DropdownMenuPortal.tsx` (shared by `NodeTypeMenu`, `EdgeLabelEditor`).
+**Implementation:** `DropdownMenuPortal.tsx` + `useFixedAnchorRect.ts` (shared by `NodeTypeMenu`, `EdgeLabelEditor`, `FloatingFieldPortal`).
 
 ---
 

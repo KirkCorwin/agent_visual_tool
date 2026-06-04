@@ -1,21 +1,29 @@
-import {
-  useLayoutEffect,
-  useState,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { useMemo, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 
 import {
   CANVAS_DROPDOWN_ATTR,
   CANVAS_DROPDOWN_Z_INDEX,
 } from "../../lib/overlayZIndex";
+import { useFixedAnchorRect } from "../../lib/useFixedAnchorRect";
 
 export type DropdownMenuPosition = {
   top: number;
   left: number;
   minWidth: number;
 };
+
+export function dropdownMenuPositionFromRect(
+  rect: Pick<DOMRect, "top" | "left" | "bottom" | "width">,
+  gap: number,
+  minWidthDefault: number,
+): DropdownMenuPosition {
+  return {
+    top: rect.bottom + gap,
+    left: rect.left,
+    minWidth: Math.max(rect.width, minWidthDefault),
+  };
+}
 
 export function useDropdownMenuPosition(
   open: boolean,
@@ -24,35 +32,14 @@ export function useDropdownMenuPosition(
 ): DropdownMenuPosition | null {
   const gap = options?.gap ?? 4;
   const minWidthDefault = options?.minWidth ?? 144;
-  const [position, setPosition] = useState<DropdownMenuPosition | null>(null);
+  const rect = useFixedAnchorRect(anchorRef, open);
 
-  useLayoutEffect(() => {
-    if (!open || !anchorRef.current) {
-      setPosition(null);
-      return;
+  return useMemo(() => {
+    if (!rect) {
+      return null;
     }
-    const update = () => {
-      const el = anchorRef.current;
-      if (!el) {
-        return;
-      }
-      const rect = el.getBoundingClientRect();
-      setPosition({
-        top: rect.bottom + gap,
-        left: rect.left,
-        minWidth: Math.max(rect.width, minWidthDefault),
-      });
-    };
-    update();
-    window.addEventListener("scroll", update, true);
-    window.addEventListener("resize", update);
-    return () => {
-      window.removeEventListener("scroll", update, true);
-      window.removeEventListener("resize", update);
-    };
-  }, [open, anchorRef, gap, minWidthDefault]);
-
-  return position;
+    return dropdownMenuPositionFromRect(rect, gap, minWidthDefault);
+  }, [rect, gap, minWidthDefault]);
 }
 
 export function isEventInsideCanvasDropdown(

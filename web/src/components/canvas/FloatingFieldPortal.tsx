@@ -1,13 +1,8 @@
-import {
-  useLayoutEffect,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { useMemo, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 
 import { FLOATING_FIELD_Z_INDEX } from "../../lib/overlayZIndex";
+import { useFixedAnchorRect } from "../../lib/useFixedAnchorRect";
 
 type FloatingFieldPortalProps = {
   anchorRef: RefObject<HTMLElement | null>;
@@ -16,49 +11,32 @@ type FloatingFieldPortalProps = {
   className?: string;
 };
 
+export function floatingFieldStyleFromRect(
+  rect: Pick<DOMRect, "top" | "left" | "width">,
+): CSSProperties {
+  const width = Math.max(rect.width, 48);
+  return {
+    position: "fixed",
+    top: rect.top,
+    left: rect.left,
+    width,
+    maxWidth: `min(${width}px, calc(100vw - ${rect.left}px - 8px))`,
+    zIndex: FLOATING_FIELD_Z_INDEX,
+    pointerEvents: "auto",
+  };
+}
+
 export function FloatingFieldPortal({
   anchorRef,
   active,
   children,
   className = "",
 }: FloatingFieldPortalProps) {
-  const [style, setStyle] = useState<CSSProperties | null>(null);
-
-  useLayoutEffect(() => {
-    if (!active || !anchorRef.current) {
-      setStyle(null);
-      return;
-    }
-
-    const update = () => {
-      const el = anchorRef.current;
-      if (!el) {
-        return;
-      }
-      const rect = el.getBoundingClientRect();
-      setStyle({
-        position: "fixed",
-        top: rect.top,
-        left: rect.left,
-        width: Math.max(rect.width, 48),
-        maxWidth: `min(${Math.max(rect.width, 48)}px, calc(100vw - ${rect.left}px - 8px))`,
-        zIndex: FLOATING_FIELD_Z_INDEX,
-        pointerEvents: "auto",
-      });
-    };
-
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(anchorRef.current);
-    window.addEventListener("scroll", update, true);
-    window.addEventListener("resize", update);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("scroll", update, true);
-      window.removeEventListener("resize", update);
-    };
-  }, [active, anchorRef]);
+  const rect = useFixedAnchorRect(anchorRef, active);
+  const style = useMemo(
+    () => (rect ? floatingFieldStyleFromRect(rect) : null),
+    [rect],
+  );
 
   if (!active || !style) {
     return null;
