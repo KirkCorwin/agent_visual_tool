@@ -33,7 +33,7 @@ export function EdgeRelationSelectOptions({
         </optgroup>
       ) : null}
       {includeCustom ? (
-        <option value={CUSTOM_EDGE_OPTION}>Custom (free text)</option>
+        <option value={CUSTOM_EDGE_OPTION}>Custom</option>
       ) : null}
     </>
   );
@@ -61,6 +61,7 @@ export function EdgeRelationMenuItems({
             role="option"
             className={`edge-label__menu-item${activeValue === edgeType ? " edge-label__menu-item--active" : ""}`}
             onClick={() => onPickBuiltin(edgeType)}
+            onPointerDown={(event) => event.stopPropagation()}
           >
             {formatEdgeType(edgeType)}
           </button>
@@ -78,6 +79,7 @@ export function EdgeRelationMenuItems({
                   role="option"
                   className={`edge-label__menu-item${activeValue === value ? " edge-label__menu-item--active" : ""}`}
                   onClick={() => onPickPreset(preset)}
+                  onPointerDown={(event) => event.stopPropagation()}
                 >
                   {preset.label}
                 </button>
@@ -93,8 +95,9 @@ export function EdgeRelationMenuItems({
           role="option"
           className={`edge-label__menu-item${activeValue === CUSTOM_EDGE_OPTION ? " edge-label__menu-item--active" : ""}`}
           onClick={onPickCustom}
+          onPointerDown={(event) => event.stopPropagation()}
         >
-          Custom (free text)
+          Custom
         </button>
       </li>
     </>

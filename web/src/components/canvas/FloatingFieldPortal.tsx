@@ -7,8 +7,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-/** Above nested child nodes and canvas chrome; matches type menu overlay. */
-export const FLOATING_FIELD_Z_INDEX = 3000;
+import { FLOATING_FIELD_Z_INDEX } from "../../lib/overlayZIndex";
 
 type FloatingFieldPortalProps = {
   anchorRef: RefObject<HTMLElement | null>;

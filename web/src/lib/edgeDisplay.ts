@@ -30,12 +30,21 @@ export function getEdgeCanvasSummary(edge: PlanningEdge): string {
   return getEdgeTitleLabel(edge);
 }
 
+/** Trim and capitalize the first character of a custom edge label. */
+export function normalizeCustomEdgeLabel(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return "";
+  }
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+}
+
 /** Single-letter chip when minimal edge labels are enabled. */
 export function getEdgeMinimalLetter(edge: PlanningEdge): string {
   if (isCustomEdge(edge)) {
     const text = edge.data?.label?.trim();
     if (text) {
-      return text.charAt(0).toUpperCase();
+      return normalizeCustomEdgeLabel(text).charAt(0);
     }
     return "C";
   }

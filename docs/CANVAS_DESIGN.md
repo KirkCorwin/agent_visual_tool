@@ -15,6 +15,7 @@ This document is the **canonical UX + stacking spec** for the React Flow plannin
 | Canvas shell | `web/src/components/canvas/GraphCanvas.tsx` |
 | Node UI | `PlanningFlowNode.tsx`, `FolderFlowNode.tsx`, `canvas.css` |
 | Edge UI | `PlanningFlowEdge.tsx`, `EdgeLabelEditor.tsx`, `EdgeHitOverlay.tsx` |
+| Dropdown overlays | `DropdownMenuPortal.tsx`, `overlayZIndex.ts` |
 | Inline text | `web/src/components/shared/InlineEditable.tsx` |
 | Settings | `web/src/graph/types.ts` (`GraphEditorSettings`), `NodePalette.tsx` |
 
@@ -139,7 +140,28 @@ Add/extend tests in `nodeZIndex.test.ts` for:
 
 ### Label z
 
-- Always `edgeZIndex + 1` from `PlanningFlowEdge` data.
+- Always `edgeZIndex + 1` from `PlanningFlowEdge` data for the **label chip** (toolbar, drag handle).
+- **Dropdown menus must not** inherit this z — see §6.1.
+
+### 6.1 Temporary dropdown overlays (UI guidance)
+
+Canvas dropdowns are **short-lived** UI (node type picker, edge relation picker, etc.). They must **always paint above** all graph nodes and edges, regardless of per-node `zIndex`.
+
+| Rule | Detail |
+|------|--------|
+| Portal | Render with `DropdownMenuPortal` → `createPortal(..., document.body)` |
+| Position | `position: fixed`, anchored to trigger via `getBoundingClientRect()` |
+| Z-index | `CANVAS_DROPDOWN_Z_INDEX` (**3000**) from `web/src/lib/overlayZIndex.ts` |
+| Marker | Portaled menu root gets `data-canvas-dropdown` for outside-click dismissal |
+| Do **not** | Rely on `z-index` inside `.react-flow__edgelabel-renderer` or node stacking contexts — those follow graph z-order and will interleave incorrectly with high-z nodes |
+
+**Stack bands (low → high):**
+
+1. Graph nodes / edges / label chips — manual `zIndex` (typically 0–~2000)
+2. Canvas dropdowns + floating inline edit — **3000** (`CANVAS_DROPDOWN_Z_INDEX`)
+3. Modal dialogs (More settings) — **4000** (`MODAL_Z_INDEX`)
+
+**Implementation:** `web/src/components/shared/DropdownMenuPortal.tsx` (shared by `NodeTypeMenu`, `EdgeLabelEditor`).
 
 ---
 
@@ -217,3 +239,4 @@ Use this as the execution order after user confirms choices:
 |------|--------|
 | 2026-06-02 | Initial guide: layering intent, editing inconsistency, minimal label hit targets, active checklist |
 | 2026-06-02 | Custom palettes section: four panels, DnD, settings/graph split |
+| 2026-06-03 | §6.1: portaled canvas dropdowns at z-index 3000 (`DropdownMenuPortal`) |

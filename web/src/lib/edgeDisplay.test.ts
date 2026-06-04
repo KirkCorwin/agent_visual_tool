@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { PlanningEdge } from "../graph/types";
 
-import { getEdgeMinimalLetter } from "./edgeDisplay";
+import {
+  getEdgeMinimalLetter,
+  normalizeCustomEdgeLabel,
+} from "./edgeDisplay";
 
 function edge(partial: Partial<PlanningEdge> & Pick<PlanningEdge, "type">): PlanningEdge {
   return {
@@ -37,5 +40,16 @@ describe("getEdgeMinimalLetter", () => {
         edge({ type: "references", data: { isCustom: true, label: "" } }),
       ),
     ).toBe("C");
+  });
+});
+
+describe("normalizeCustomEdgeLabel", () => {
+  it("trims and capitalizes the first character", () => {
+    expect(normalizeCustomEdgeLabel("  owns pipeline  ")).toBe("Owns pipeline");
+    expect(normalizeCustomEdgeLabel("depends")).toBe("Depends");
+  });
+
+  it("returns empty string for blank input", () => {
+    expect(normalizeCustomEdgeLabel("   ")).toBe("");
   });
 });

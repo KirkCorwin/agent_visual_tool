@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { isImplicitEdge } from "../../graph/implicitEdges";
-import { isCustomEdge } from "../../lib/edgeDisplay";
+import { isCustomEdge, normalizeCustomEdgeLabel } from "../../lib/edgeDisplay";
 import { getEdgeRelationMenuValue } from "../../lib/customEdgePresets";
 import { PLANNING_NODE_TYPES } from "../../lib/planningNodeTypes";
 import { EDGE_TYPES, type EdgeType, type NodeType } from "../../graph/types";
@@ -251,6 +251,10 @@ export function SelectionInspector() {
                 onChange={(e) =>
                   updateSelectedEdge({ label: e.target.value })
                 }
+                onBlur={(e) => {
+                  const label = normalizeCustomEdgeLabel(e.target.value);
+                  updateSelectedEdge({ label: label || undefined });
+                }}
               />
             </label>
           ) : null}
